@@ -2,6 +2,8 @@
 
 Hextraview is a mere attempt at bringing a better hex editor in burp suite. this idea took root following popular demand (i.e. 3 people on a lost irc channel)
 
+![](hextraview.gif)
+
 # Project history
 
 - March 2021: 30 minutes looking for existing opensource java hex library
