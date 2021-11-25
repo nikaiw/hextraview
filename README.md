@@ -16,5 +16,5 @@ Hextraview is a mere attempt at bringing a better hex editor in burp suite. this
 - Background color discrimination for requests parts (body, header, etc) 
 - Color discrimination by character type (printable, null-bytes, unprintable)
 - ?
-- 
+
 PR are more than welcome ;) 
