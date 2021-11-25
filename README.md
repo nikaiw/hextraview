@@ -1,6 +1,6 @@
 # Hextraview
 
-Hextraview is a mere attempt at bringing a better hex editor in burp suite. this idea took root following popular demand (i.e. 3 people on a lost irc channel)
+Hextraview is a mere attempt at bringing a better hex editor in burp suite. this idea took root following very popular demand (i.e. 3 people on a lost irc channel)
 
 # Project history
 
