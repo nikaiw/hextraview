@@ -10,10 +10,11 @@ Hextraview is a mere attempt at bringing a better hex editor in burp suite. this
 - May 2021: 5 minutes spent to push the lib basis example into a view
 - Novembre 2021: Nothing has changed let's put it in a corner of github
 
-# Todo
+# Todo / Requests
 
 - Ability to save/hide settings 
-- Color changes ?
+- Background color discrimination for requests parts (body, header, etc) 
+- Color discrimination by character type (printable, null-bytes, unprintable)
 - ?
-
+- 
 PR are more than welcome ;) 
