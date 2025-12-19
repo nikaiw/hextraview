@@ -184,20 +184,20 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         tabMap.put(scrollingTab, scrollingPanel);
         tabMap.put(cursorTab, cursorPanel);
 
+        // Create and add Raw tab first (default tab)
+        setupRawTab();
+
         // Create and add Colors tab
         setupColorsTab();
-
-        // Create and add Raw tab for bidirectional sync
-        setupRawTab();
 
         // Collapsible settings disabled - modifying splitPane structure causes Burp issues
         // setupCollapsibleSettings();
 
-        // Hide advanced tabs by default (show only Colors and Raw)
+        // Hide advanced tabs by default (show only Raw and Colors)
         hideAdvancedTabs();
 
-        activeTab = colorsTab;
-        colorsTab.add(colorsPanel, BorderLayout.CENTER);
+        activeTab = rawTab;
+        rawTab.add(tabMap.get(rawTab), BorderLayout.CENTER);
     }
 
     // Toggle advanced tabs visibility
@@ -224,9 +224,9 @@ public class DeltaHexPanel extends javax.swing.JPanel {
 
     // Show advanced tabs
     private void showAdvancedTabsUI() {
-        // Add advanced tabs back in order (after Colors, before Raw)
-        int colorsIndex = tabbedPane.indexOfTab("Colors");
-        int insertIndex = colorsIndex + 1;
+        // Add advanced tabs back in order (after Raw, before Colors)
+        int rawIndex = tabbedPane.indexOfTab("Raw");
+        int insertIndex = rawIndex + 1;
 
         // Add tabs in correct order
         tabbedPane.insertTab("Mode", null, modeTab, null, insertIndex++);
