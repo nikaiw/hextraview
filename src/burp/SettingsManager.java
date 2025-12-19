@@ -59,6 +59,7 @@ public class SettingsManager {
     public static final String KEY_SPACE_BG = "spaceBgColor";
 
     // Color keys - region background colors
+    public static final String KEY_REGION_COLORING_ENABLED = "regionColoringEnabled";
     public static final String KEY_REQUEST_LINE_BG = "requestLineBgColor";
     public static final String KEY_HEADERS_BG = "headersBgColor";
     public static final String KEY_BODY_BG = "bodyBgColor";

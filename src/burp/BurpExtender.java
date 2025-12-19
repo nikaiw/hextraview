@@ -2,16 +2,17 @@ package burp;
 
 import java.io.PrintWriter;
 
-public class BurpExtender implements IBurpExtender {
+public class BurpExtender implements IBurpExtender, IExtensionStateListener {
 
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.1.0";
+    private PrintWriter stdout;
 
     @Override
     public void registerExtenderCallbacks(IBurpExtenderCallbacks callbacks) {
         callbacks.setExtensionName("HextraView");
 
         // Print build info to Burp output
-        PrintWriter stdout = new PrintWriter(callbacks.getStdout(), true);
+        stdout = new PrintWriter(callbacks.getStdout(), true);
         stdout.println("===========================================");
         stdout.println("  HextraView - Enhanced Hex Editor");
         stdout.println("  Version: " + VERSION);
@@ -19,8 +20,19 @@ public class BurpExtender implements IBurpExtender {
         stdout.println("  Commit:  " + BuildInfo.GIT_COMMIT);
         stdout.println("===========================================");
 
+        // Register the extension state listener for proper cleanup
+        callbacks.registerExtensionStateListener(this);
+
         callbacks.registerMessageEditorTabFactory((controller, editable) -> new ViewStateTab(callbacks, controller, editable));
 
         stdout.println("HextraView loaded successfully!");
+    }
+
+    @Override
+    public void extensionUnloaded() {
+        if (stdout != null) {
+            stdout.println("HextraView unloaded.");
+        }
+        // Additional cleanup can be added here if needed
     }
 }

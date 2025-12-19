@@ -266,7 +266,8 @@ public class HextraCodeAreaPainter implements CodeAreaColorAssessor {
 
     public Color getRegionBackgroundColor(long dataPosition) {
         if (!regionColoringEnabled) {
-            return defaultBg;
+            // Return null to use bined's default alternating gray background
+            return null;
         }
         if (regionParser == null) {
             return defaultBg;

@@ -94,6 +94,104 @@ public class ColorTheme {
         );
     }
 
+    public static ColorTheme createMonokaiTheme() {
+        return new ColorTheme("Monokai",
+            new Color(248, 248, 242),           // printableColor (off-white)
+            new Color(249, 38, 114),            // nullByteColor (pink)
+            new Color(102, 217, 239),           // unprintableColor (cyan)
+            new Color(248, 248, 242),           // spaceColor
+            new Color(55, 55, 45),              // requestLineBg
+            new Color(45, 50, 40),              // headersBg
+            new Color(40, 42, 54),              // bodyBg
+            new Color(39, 40, 34),              // defaultBg (monokai bg)
+            null, null, null, null
+        );
+    }
+
+    public static ColorTheme createSolarizedDarkTheme() {
+        return new ColorTheme("Solarized Dark",
+            new Color(131, 148, 150),           // printableColor (base0)
+            new Color(220, 50, 47),             // nullByteColor (red)
+            new Color(38, 139, 210),            // unprintableColor (blue)
+            new Color(131, 148, 150),           // spaceColor
+            new Color(7, 54, 66),               // requestLineBg (base02)
+            new Color(0, 53, 63),               // headersBg
+            new Color(0, 48, 58),               // bodyBg
+            new Color(0, 43, 54),               // defaultBg (base03)
+            null, null, null, null
+        );
+    }
+
+    public static ColorTheme createSolarizedLightTheme() {
+        return new ColorTheme("Solarized Light",
+            new Color(101, 123, 131),           // printableColor (base00)
+            new Color(220, 50, 47),             // nullByteColor (red)
+            new Color(38, 139, 210),            // unprintableColor (blue)
+            new Color(101, 123, 131),           // spaceColor
+            new Color(238, 232, 213),           // requestLineBg (base2)
+            new Color(245, 240, 225),           // headersBg
+            new Color(250, 245, 235),           // bodyBg
+            new Color(253, 246, 227),           // defaultBg (base3)
+            null, null, null, null
+        );
+    }
+
+    public static ColorTheme createMatrixTheme() {
+        return new ColorTheme("Matrix",
+            new Color(0, 255, 65),              // printableColor (matrix green)
+            new Color(255, 0, 0),               // nullByteColor (red)
+            new Color(0, 180, 45),              // unprintableColor (darker green)
+            new Color(0, 200, 50),              // spaceColor
+            new Color(0, 20, 5),                // requestLineBg
+            new Color(0, 15, 3),                // headersBg
+            new Color(0, 10, 2),                // bodyBg
+            new Color(0, 5, 0),                 // defaultBg (almost black)
+            null, null, null, null
+        );
+    }
+
+    public static ColorTheme createDraculaTheme() {
+        return new ColorTheme("Dracula",
+            new Color(248, 248, 242),           // printableColor (foreground)
+            new Color(255, 85, 85),             // nullByteColor (red)
+            new Color(139, 233, 253),           // unprintableColor (cyan)
+            new Color(248, 248, 242),           // spaceColor
+            new Color(55, 60, 75),              // requestLineBg
+            new Color(50, 55, 70),              // headersBg
+            new Color(45, 50, 65),              // bodyBg
+            new Color(40, 42, 54),              // defaultBg (background)
+            null, null, null, null
+        );
+    }
+
+    public static ColorTheme createOceanTheme() {
+        return new ColorTheme("Ocean",
+            new Color(220, 235, 250),           // printableColor (light blue-white)
+            new Color(255, 100, 100),           // nullByteColor (coral)
+            new Color(100, 200, 255),           // unprintableColor (sky blue)
+            new Color(200, 220, 240),           // spaceColor
+            new Color(25, 55, 85),              // requestLineBg (deep blue)
+            new Color(20, 50, 80),              // headersBg
+            new Color(15, 45, 75),              // bodyBg
+            new Color(10, 40, 70),              // defaultBg (ocean blue)
+            null, null, null, null
+        );
+    }
+
+    public static ColorTheme createRetroTheme() {
+        return new ColorTheme("Retro",
+            new Color(255, 176, 0),             // printableColor (amber)
+            new Color(255, 0, 0),               // nullByteColor (red)
+            new Color(0, 255, 0),               // unprintableColor (green phosphor)
+            new Color(255, 176, 0),             // spaceColor
+            new Color(30, 25, 20),              // requestLineBg
+            new Color(25, 20, 15),              // headersBg
+            new Color(20, 15, 10),              // bodyBg
+            new Color(15, 10, 5),               // defaultBg (dark brown)
+            null, null, null, null
+        );
+    }
+
     // Getters and setters
     public String getName() {
         return name;

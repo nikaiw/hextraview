@@ -19,10 +19,15 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Frame;
+import java.awt.Window;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -32,16 +37,20 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.KeyStroke;
 import javax.swing.JColorChooser;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -112,6 +121,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
     private JButton headersBgButton;
     private JButton bodyBgButton;
     private JButton defaultBgButton;
+    private javax.swing.JCheckBox regionColoringCheckBox;
 
     // Colors tab
     private JPanel colorsTab;
@@ -136,12 +146,32 @@ public class DeltaHexPanel extends javax.swing.JPanel {
     // Theme selector
     private javax.swing.JComboBox<String> themeComboBox;
 
+    // Search panel
+    private SearchPanel searchPanel;
+
+    // Context menu
+    private HexContextMenu contextMenu;
+
     public DeltaHexPanel() {
         initComponents();
     }
 
     public void setCodeArea(final CodeArea codeArea) {
         this.codeArea = codeArea;
+
+        // Add simple right-click test listener directly here
+        codeArea.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
+                    // If context menu is initialized, show it
+                    if (contextMenu != null) {
+                        contextMenu.updateMenuState();
+                        contextMenu.show(codeArea, e.getX(), e.getY());
+                    }
+                }
+            }
+        });
 
         // Create wrapper for hex area with expand link
         hexAreaWrapper = new JPanel(new BorderLayout());
@@ -168,7 +198,49 @@ public class DeltaHexPanel extends javax.swing.JPanel {
             }
         });
 
-        hexAreaWrapper.add(expandSettingsLink, BorderLayout.NORTH);
+        // Create toolbar with search button and settings link
+        JPanel toolbarPanel = new JPanel(new BorderLayout());
+
+        // Left side: settings link
+        toolbarPanel.add(expandSettingsLink, BorderLayout.WEST);
+
+        // Right side: search button
+        JButton searchButton = new JButton("Search");
+        searchButton.setFont(searchButton.getFont().deriveFont(Font.PLAIN, 10f));
+        searchButton.setMargin(new Insets(2, 8, 2, 8));
+        searchButton.setToolTipText("Search (Ctrl+Shift+F)");
+        searchButton.addActionListener(e -> showSearchPanel());
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        buttonPanel.add(searchButton);
+        toolbarPanel.add(buttonPanel, BorderLayout.EAST);
+
+        // Add Ctrl+Shift+F keyboard shortcut to open search panel
+        codeArea.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(
+            KeyStroke.getKeyStroke(KeyEvent.VK_F, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK), "openSearch");
+        codeArea.getActionMap().put("openSearch", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showSearchPanel();
+            }
+        });
+
+        // Add Ctrl+G keyboard shortcut for Go to Offset
+        codeArea.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(
+            KeyStroke.getKeyStroke(KeyEvent.VK_G, KeyEvent.CTRL_DOWN_MASK), "goToOffset");
+        codeArea.getActionMap().put("goToOffset", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (contextMenu != null) {
+                    contextMenu.goToOffset();
+                }
+            }
+        });
+
+        // Create top panel with toolbar (search panel will be added below)
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(toolbarPanel, BorderLayout.NORTH);
+
+        hexAreaWrapper.add(topPanel, BorderLayout.NORTH);
         hexAreaWrapper.add(codeArea, BorderLayout.CENTER);
 
         // Set wrapper as right component
@@ -236,6 +308,9 @@ public class DeltaHexPanel extends javax.swing.JPanel {
 
         activeTab = rawTab;
         rawTab.add(tabMap.get(rawTab), BorderLayout.CENTER);
+
+        // Initialize context menu (if painter is already set)
+        initContextMenu();
     }
 
     // Hide advanced tabs (Mode, State, Layout, Decoration, Scrolling, Cursor)
@@ -265,11 +340,6 @@ public class DeltaHexPanel extends javax.swing.JPanel {
 
         JScrollPane rawScrollPane = new JScrollPane(rawTextArea);
         rawPanel.add(rawScrollPane, BorderLayout.CENTER);
-
-        // Add info label
-        JLabel infoLabel = new JLabel("Edit raw data here - changes sync to hex view");
-        infoLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        rawPanel.add(infoLabel, BorderLayout.NORTH);
 
         tabbedPane.addTab("Raw", rawTab);
         tabMap.put(rawTab, rawPanel);
@@ -670,7 +740,10 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         themePanel.add(new JLabel("Select Theme:"), tgbc);
 
         tgbc.gridx = 1;
-        themeComboBox = new javax.swing.JComboBox<>(new String[]{"Light", "Dark", "High Contrast", "Custom"});
+        themeComboBox = new javax.swing.JComboBox<>(new String[]{
+            "Light", "Dark", "High Contrast", "Monokai", "Solarized Dark",
+            "Solarized Light", "Matrix", "Dracula", "Ocean", "Retro", "Custom"
+        });
         themeComboBox.addActionListener(e -> applySelectedTheme());
         themePanel.add(themeComboBox, tgbc);
 
@@ -742,26 +815,51 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         rgbc.insets = new Insets(3, 5, 3, 5);
         rgbc.anchor = GridBagConstraints.WEST;
 
+        // Enable/disable checkbox
+        regionColoringCheckBox = new javax.swing.JCheckBox("Enable HTTP region coloring");
+        regionColoringCheckBox.setSelected(true);
+        rgbc.gridy = 0;
+        rgbc.gridx = 0;
+        rgbc.gridwidth = 2;
+        regionColorsPanel.add(regionColoringCheckBox, rgbc);
+        rgbc.gridwidth = 1;
+
         requestLineBgButton = createColorButton("Request Line", new Color(255, 245, 238));
         headersBgButton = createColorButton("Headers", new Color(240, 255, 240));
         bodyBgButton = createColorButton("Body", new Color(240, 248, 255));
         defaultBgButton = createColorButton("Default", new Color(255, 255, 255));
 
-        rgbc.gridy = 0;
+        rgbc.gridy = 1;
         rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Request Line:"), rgbc);
         rgbc.gridx = 1; regionColorsPanel.add(requestLineBgButton, rgbc);
 
-        rgbc.gridy = 1;
+        rgbc.gridy = 2;
         rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Headers:"), rgbc);
         rgbc.gridx = 1; regionColorsPanel.add(headersBgButton, rgbc);
 
-        rgbc.gridy = 2;
+        rgbc.gridy = 3;
         rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Body:"), rgbc);
         rgbc.gridx = 1; regionColorsPanel.add(bodyBgButton, rgbc);
 
-        rgbc.gridy = 3;
+        rgbc.gridy = 4;
         rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Default:"), rgbc);
         rgbc.gridx = 1; regionColorsPanel.add(defaultBgButton, rgbc);
+
+        // Toggle color buttons enabled state based on checkbox
+        regionColoringCheckBox.addActionListener(e -> {
+            boolean enabled = regionColoringCheckBox.isSelected();
+            requestLineBgButton.setEnabled(enabled);
+            headersBgButton.setEnabled(enabled);
+            bodyBgButton.setEnabled(enabled);
+            defaultBgButton.setEnabled(enabled);
+            if (hextraPainter != null) {
+                hextraPainter.setRegionColoringEnabled(enabled);
+                codeArea.repaint();
+            }
+            if (settingsManager != null) {
+                settingsManager.saveSetting(SettingsManager.KEY_REGION_COLORING_ENABLED, String.valueOf(enabled));
+            }
+        });
 
         // Reset to Defaults button
         JPanel resetPanel = new JPanel();
@@ -815,11 +913,98 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         if (settingsManager != null) {
             loadColorSettings();
         }
+        // Initialize search panel now that we have the painter
+        initSearchPanel();
+        // Initialize context menu
+        initContextMenu();
+    }
+
+    private void initSearchPanel() {
+        if (codeArea == null || hextraPainter == null) return;
+        if (searchPanel != null) return; // Already initialized
+
+        searchPanel = new SearchPanel(codeArea, hextraPainter);
+        searchPanel.setVisible(false);
+
+        // Add search panel to the top of hex area wrapper
+        Component topComponent = hexAreaWrapper.getComponent(0);
+        if (topComponent instanceof JPanel) {
+            JPanel topPanel = (JPanel) topComponent;
+            topPanel.add(searchPanel, BorderLayout.CENTER);
+        }
+    }
+
+    private void initContextMenu() {
+        if (codeArea == null || hextraPainter == null) return;
+        if (contextMenu != null) return; // Already initialized
+
+        // Create context menu with region parser from painter
+        contextMenu = new HexContextMenu(codeArea, hextraPainter.getRegionParser());
+
+        // Try Swing's built-in popup menu mechanism
+        codeArea.setComponentPopupMenu(contextMenu);
+        codeArea.setInheritsPopupMenu(true);
+
+        // Also add manual mouse listener as fallback (some components need this)
+        java.awt.event.MouseAdapter popupListener = new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                maybeShowPopup(e);
+            }
+
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                maybeShowPopup(e);
+            }
+
+            private void maybeShowPopup(java.awt.event.MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    contextMenu.updateMenuState();
+                    contextMenu.show(e.getComponent(), e.getX(), e.getY());
+                }
+            }
+        };
+        codeArea.addMouseListener(popupListener);
+
+        // Add listener to update menu state before showing (for setComponentPopupMenu)
+        contextMenu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                contextMenu.updateMenuState();
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {}
+
+            @Override
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {}
+        });
+    }
+
+    private void showSearchPanel() {
+        // Initialize search panel if not done yet
+        if (searchPanel == null) {
+            initSearchPanel();
+        }
+        if (searchPanel != null) {
+            searchPanel.showPanel();
+        }
     }
 
     // Alias for setPainter - HextraCodeAreaPainter is now a ColorAssessor
     public void setColorAssessor(HextraCodeAreaPainter colorAssessor) {
         setPainter(colorAssessor);
+    }
+
+    /**
+     * Get the parent frame for dialogs (required by BApp Store criteria)
+     */
+    private Frame getParentFrame() {
+        Window window = SwingUtilities.getWindowAncestor(this);
+        if (window instanceof Frame) {
+            return (Frame) window;
+        }
+        return null;
     }
 
     private void setupColorButtonListeners() {
@@ -828,7 +1013,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         if (printableColorButton == null) return;
 
         printableColorButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(this, "Printable Character Color", hextraPainter.getPrintableColor());
+            Color newColor = JColorChooser.showDialog(getParentFrame(), "Printable Character Color", hextraPainter.getPrintableColor());
             if (newColor != null) {
                 hextraPainter.setPrintableColor(newColor);
                 printableColorButton.setBackground(newColor);
@@ -841,7 +1026,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         });
 
         nullByteColorButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(this, "Null Byte Color", hextraPainter.getNullByteColor());
+            Color newColor = JColorChooser.showDialog(getParentFrame(), "Null Byte Color", hextraPainter.getNullByteColor());
             if (newColor != null) {
                 hextraPainter.setNullByteColor(newColor);
                 nullByteColorButton.setBackground(newColor);
@@ -854,7 +1039,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         });
 
         unprintableColorButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(this, "Unprintable Character Color", hextraPainter.getUnprintableColor());
+            Color newColor = JColorChooser.showDialog(getParentFrame(), "Unprintable Character Color", hextraPainter.getUnprintableColor());
             if (newColor != null) {
                 hextraPainter.setUnprintableColor(newColor);
                 unprintableColorButton.setBackground(newColor);
@@ -867,7 +1052,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         });
 
         spaceColorButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(this, "Space Character Color", hextraPainter.getSpaceColor());
+            Color newColor = JColorChooser.showDialog(getParentFrame(), "Space Character Color", hextraPainter.getSpaceColor());
             if (newColor != null) {
                 hextraPainter.setSpaceColor(newColor);
                 spaceColorButton.setBackground(newColor);
@@ -880,7 +1065,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         });
 
         requestLineBgButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(this, "Request Line Background", hextraPainter.getRequestLineBgColor());
+            Color newColor = JColorChooser.showDialog(getParentFrame(), "Request Line Background", hextraPainter.getRequestLineBgColor());
             if (newColor != null) {
                 hextraPainter.setRequestLineBgColor(newColor);
                 requestLineBgButton.setBackground(newColor);
@@ -892,7 +1077,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         });
 
         headersBgButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(this, "Headers Background", hextraPainter.getHeadersBgColor());
+            Color newColor = JColorChooser.showDialog(getParentFrame(), "Headers Background", hextraPainter.getHeadersBgColor());
             if (newColor != null) {
                 hextraPainter.setHeadersBgColor(newColor);
                 headersBgButton.setBackground(newColor);
@@ -904,7 +1089,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         });
 
         bodyBgButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(this, "Body Background", hextraPainter.getBodyBgColor());
+            Color newColor = JColorChooser.showDialog(getParentFrame(), "Body Background", hextraPainter.getBodyBgColor());
             if (newColor != null) {
                 hextraPainter.setBodyBgColor(newColor);
                 bodyBgButton.setBackground(newColor);
@@ -916,7 +1101,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         });
 
         defaultBgButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(this, "Default Background", hextraPainter.getDefaultBgColor());
+            Color newColor = JColorChooser.showDialog(getParentFrame(), "Default Background", hextraPainter.getDefaultBgColor());
             if (newColor != null) {
                 hextraPainter.setDefaultBgColor(newColor);
                 defaultBgButton.setBackground(newColor);
@@ -972,7 +1157,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         button.addActionListener(e -> {
             Color currentColor = getter.get();
             if (currentColor == null) currentColor = Color.WHITE;
-            Color newColor = JColorChooser.showDialog(this, dialogTitle, currentColor);
+            Color newColor = JColorChooser.showDialog(getParentFrame(), dialogTitle, currentColor);
             if (newColor != null) {
                 setter.accept(newColor);
                 button.setBackground(newColor);
@@ -1025,6 +1210,19 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         Color spaceColor = settingsManager.loadColor(SettingsManager.KEY_SPACE_COLOR, Color.BLACK);
         hextraPainter.setSpaceColor(spaceColor);
         if (spaceColorButton != null) spaceColorButton.setBackground(spaceColor);
+
+        // Load region coloring enabled setting
+        String regionColoringStr = settingsManager.loadSetting(SettingsManager.KEY_REGION_COLORING_ENABLED, "true");
+        boolean regionColoringEnabled = Boolean.parseBoolean(regionColoringStr);
+        hextraPainter.setRegionColoringEnabled(regionColoringEnabled);
+        if (regionColoringCheckBox != null) {
+            regionColoringCheckBox.setSelected(regionColoringEnabled);
+            // Update button enabled states
+            if (requestLineBgButton != null) requestLineBgButton.setEnabled(regionColoringEnabled);
+            if (headersBgButton != null) headersBgButton.setEnabled(regionColoringEnabled);
+            if (bodyBgButton != null) bodyBgButton.setEnabled(regionColoringEnabled);
+            if (defaultBgButton != null) defaultBgButton.setEnabled(regionColoringEnabled);
+        }
 
         // Load region colors
         Color requestLineBg = settingsManager.loadColor(SettingsManager.KEY_REQUEST_LINE_BG, new Color(255, 245, 238));
@@ -1109,6 +1307,9 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         hextraPainter.setUnprintableColor(Color.BLUE);
         hextraPainter.setSpaceColor(Color.BLACK);
 
+        // Reset region coloring to enabled
+        hextraPainter.setRegionColoringEnabled(true);
+
         // Reset region background colors to defaults
         hextraPainter.setRequestLineBgColor(new Color(255, 245, 238));  // Seashell
         hextraPainter.setHeadersBgColor(new Color(240, 255, 240));      // Honeydew
@@ -1127,10 +1328,26 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         if (unprintableColorButton != null) unprintableColorButton.setBackground(Color.BLUE);
         if (spaceColorButton != null) spaceColorButton.setBackground(Color.BLACK);
 
-        if (requestLineBgButton != null) requestLineBgButton.setBackground(new Color(255, 245, 238));
-        if (headersBgButton != null) headersBgButton.setBackground(new Color(240, 255, 240));
-        if (bodyBgButton != null) bodyBgButton.setBackground(new Color(240, 248, 255));
-        if (defaultBgButton != null) defaultBgButton.setBackground(Color.WHITE);
+        // Reset region coloring checkbox and buttons
+        if (regionColoringCheckBox != null) {
+            regionColoringCheckBox.setSelected(true);
+        }
+        if (requestLineBgButton != null) {
+            requestLineBgButton.setEnabled(true);
+            requestLineBgButton.setBackground(new Color(255, 245, 238));
+        }
+        if (headersBgButton != null) {
+            headersBgButton.setEnabled(true);
+            headersBgButton.setBackground(new Color(240, 255, 240));
+        }
+        if (bodyBgButton != null) {
+            bodyBgButton.setEnabled(true);
+            bodyBgButton.setBackground(new Color(240, 248, 255));
+        }
+        if (defaultBgButton != null) {
+            defaultBgButton.setEnabled(true);
+            defaultBgButton.setBackground(Color.WHITE);
+        }
 
         // Reset character background checkboxes and buttons
         if (printableBgCheckBox != null) {
@@ -1196,6 +1413,27 @@ public class DeltaHexPanel extends javax.swing.JPanel {
                 break;
             case "High Contrast":
                 theme = ColorTheme.createHighContrastTheme();
+                break;
+            case "Monokai":
+                theme = ColorTheme.createMonokaiTheme();
+                break;
+            case "Solarized Dark":
+                theme = ColorTheme.createSolarizedDarkTheme();
+                break;
+            case "Solarized Light":
+                theme = ColorTheme.createSolarizedLightTheme();
+                break;
+            case "Matrix":
+                theme = ColorTheme.createMatrixTheme();
+                break;
+            case "Dracula":
+                theme = ColorTheme.createDraculaTheme();
+                break;
+            case "Ocean":
+                theme = ColorTheme.createOceanTheme();
+                break;
+            case "Retro":
+                theme = ColorTheme.createRetroTheme();
                 break;
             case "Light":
             default:
@@ -2484,7 +2722,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
                 return "All Files (*)";
             }
         });
-        if (openFC.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+        if (openFC.showOpenDialog(getParentFrame()) == JFileChooser.APPROVE_OPTION) {
             try {
                 File selectedFile = openFC.getSelectedFile();
                 try (FileInputStream stream = new FileInputStream(selectedFile)) {
@@ -2512,7 +2750,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
                 return "All Files (*)";
             }
         });
-        if (saveFC.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+        if (saveFC.showSaveDialog(getParentFrame()) == JFileChooser.APPROVE_OPTION) {
             try {
                 File selectedFile = saveFC.getSelectedFile();
                 try (FileOutputStream stream = new FileOutputStream(selectedFile)) {
