@@ -65,6 +65,10 @@ import org.exbin.bined.CodeAreaSection;
 import org.exbin.bined.SelectionChangedListener;
 import org.exbin.bined.SelectionRange;
 import org.exbin.bined.basic.CodeAreaViewMode;
+import org.exbin.bined.basic.BasicBackgroundPaintMode;
+import org.exbin.bined.RowWrappingMode;
+import org.exbin.bined.EditOperation;
+import org.exbin.bined.swing.basic.AntialiasingMode;
 import org.exbin.bined.swing.basic.CodeArea;
 import org.exbin.bined.CodeAreaCaret;
 import org.exbin.auxiliary.binary_data.EditableBinaryData;
@@ -91,6 +95,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
     private JButton printableColorButton;
     private JButton nullByteColorButton;
     private JButton unprintableColorButton;
+    private JButton spaceColorButton;
 
     // Character background color buttons and checkboxes
     private JButton printableBgButton;
@@ -121,10 +126,12 @@ public class DeltaHexPanel extends javax.swing.JPanel {
     private boolean settingsCollapsed = false;
     private int lastDividerLocation = 200;
     private JButton toggleSettingsButton;
+    private JLabel expandSettingsLink;
+    private JPanel hexAreaWrapper;
 
-    // Advanced tabs visibility
-    private boolean showAdvancedTabs = false;
-    private javax.swing.JCheckBox showAdvancedCheckBox;
+    // Options tab
+    private JPanel optionsTab;
+    private JPanel optionsPanel;
 
     // Theme selector
     private javax.swing.JComboBox<String> themeComboBox;
@@ -136,8 +143,36 @@ public class DeltaHexPanel extends javax.swing.JPanel {
     public void setCodeArea(final CodeArea codeArea) {
         this.codeArea = codeArea;
 
-        // Set codeArea as right component
-        splitPane.setRightComponent(codeArea);
+        // Create wrapper for hex area with expand link
+        hexAreaWrapper = new JPanel(new BorderLayout());
+
+        // Create expand settings link (shown when settings are collapsed)
+        expandSettingsLink = new JLabel("[show settings]");
+        expandSettingsLink.setForeground(Color.GRAY);
+        expandSettingsLink.setFont(expandSettingsLink.getFont().deriveFont(Font.PLAIN, 10f));
+        expandSettingsLink.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        expandSettingsLink.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        expandSettingsLink.setVisible(false);
+        expandSettingsLink.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                toggleSettingsPanel();
+            }
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                expandSettingsLink.setForeground(Color.BLUE);
+            }
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                expandSettingsLink.setForeground(Color.GRAY);
+            }
+        });
+
+        hexAreaWrapper.add(expandSettingsLink, BorderLayout.NORTH);
+        hexAreaWrapper.add(codeArea, BorderLayout.CENTER);
+
+        // Set wrapper as right component
+        splitPane.setRightComponent(hexAreaWrapper);
 
         // Initialize basic settings from available API (simplified for bined 0.2.2)
         try {
@@ -190,24 +225,17 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         // Create and add Colors tab
         setupColorsTab();
 
-        // Collapsible settings disabled - modifying splitPane structure causes Burp issues
-        // setupCollapsibleSettings();
+        // Create and add Options tab (after Colors)
+        setupOptionsTab();
 
-        // Hide advanced tabs by default (show only Raw and Colors)
+        // Setup collapsible settings panel
+        setupCollapsibleSettings();
+
+        // Hide advanced tabs by default (show only Raw, Options and Colors)
         hideAdvancedTabs();
 
         activeTab = rawTab;
         rawTab.add(tabMap.get(rawTab), BorderLayout.CENTER);
-    }
-
-    // Toggle advanced tabs visibility
-    private void toggleAdvancedTabs() {
-        showAdvancedTabs = showAdvancedCheckBox.isSelected();
-        if (showAdvancedTabs) {
-            showAdvancedTabsUI();
-        } else {
-            hideAdvancedTabs();
-        }
     }
 
     // Hide advanced tabs (Mode, State, Layout, Decoration, Scrolling, Cursor)
@@ -220,21 +248,6 @@ public class DeltaHexPanel extends javax.swing.JPanel {
                 tabbedPane.removeTabAt(i);
             }
         }
-    }
-
-    // Show advanced tabs
-    private void showAdvancedTabsUI() {
-        // Add advanced tabs back in order (after Raw, before Colors)
-        int rawIndex = tabbedPane.indexOfTab("Raw");
-        int insertIndex = rawIndex + 1;
-
-        // Add tabs in correct order
-        tabbedPane.insertTab("Mode", null, modeTab, null, insertIndex++);
-        tabbedPane.insertTab("State", null, stateTab, null, insertIndex++);
-        tabbedPane.insertTab("Layout", null, layoutTab, null, insertIndex++);
-        tabbedPane.insertTab("Decoration", null, decorationTab, null, insertIndex++);
-        tabbedPane.insertTab("Scrolling", null, scrollingTab, null, insertIndex++);
-        tabbedPane.insertTab("Cursor", null, cursorTab, null, insertIndex);
     }
 
     // Raw tab setup for bidirectional hex-raw sync
@@ -327,6 +340,243 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         syncHexToRaw();
     }
 
+    // Options tab with working settings for bined 0.2.2
+    private void setupOptionsTab() {
+        optionsTab = new JPanel(new BorderLayout());
+        optionsPanel = new JPanel();
+        optionsPanel.setLayout(new BoxLayout(optionsPanel, BoxLayout.Y_AXIS));
+        optionsPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // Font settings panel
+        JPanel fontPanel = new JPanel(new GridBagLayout());
+        fontPanel.setBorder(BorderFactory.createTitledBorder("Font"));
+        fontPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        GridBagConstraints fgbc = new GridBagConstraints();
+        fgbc.insets = new Insets(3, 5, 3, 5);
+        fgbc.anchor = GridBagConstraints.WEST;
+
+        // Font family
+        String[] fontFamilies = {"Monospaced", "Courier New", "Consolas", "DejaVu Sans Mono", "Liberation Mono"};
+        javax.swing.JComboBox<String> fontComboBox = new javax.swing.JComboBox<>(fontFamilies);
+        fontComboBox.addActionListener(e -> {
+            if (codeArea != null) {
+                String fontName = (String) fontComboBox.getSelectedItem();
+                Font currentFont = codeArea.getCodeFont();
+                int size = currentFont != null ? currentFont.getSize() : 12;
+                codeArea.setCodeFont(new Font(fontName, Font.PLAIN, size));
+            }
+        });
+        fgbc.gridx = 0; fgbc.gridy = 0;
+        fontPanel.add(new JLabel("Font:"), fgbc);
+        fgbc.gridx = 1;
+        fontPanel.add(fontComboBox, fgbc);
+
+        // Font size
+        Integer[] fontSizes = {10, 11, 12, 13, 14, 16, 18, 20, 24};
+        javax.swing.JComboBox<Integer> fontSizeComboBox = new javax.swing.JComboBox<>(fontSizes);
+        fontSizeComboBox.setSelectedItem(12);
+        fontSizeComboBox.addActionListener(e -> {
+            if (codeArea != null) {
+                int size = (Integer) fontSizeComboBox.getSelectedItem();
+                Font currentFont = codeArea.getCodeFont();
+                String fontName = currentFont != null ? currentFont.getFamily() : "Monospaced";
+                codeArea.setCodeFont(new Font(fontName, Font.PLAIN, size));
+            }
+        });
+        fgbc.gridx = 0; fgbc.gridy = 1;
+        fontPanel.add(new JLabel("Size:"), fgbc);
+        fgbc.gridx = 1;
+        fontPanel.add(fontSizeComboBox, fgbc);
+
+        // Antialiasing
+        String[] antialiasingModes = {"OFF", "AUTO", "DEFAULT", "BASIC", "GASP", "LCD_HRGB", "LCD_HBGR", "LCD_VRGB", "LCD_VBGR"};
+        javax.swing.JComboBox<String> antialiasingComboBox = new javax.swing.JComboBox<>(antialiasingModes);
+        antialiasingComboBox.setSelectedItem("AUTO");
+        antialiasingComboBox.addActionListener(e -> {
+            if (codeArea != null) {
+                String mode = (String) antialiasingComboBox.getSelectedItem();
+                codeArea.setAntialiasingMode(AntialiasingMode.valueOf(mode));
+            }
+        });
+        fgbc.gridx = 0; fgbc.gridy = 2;
+        fontPanel.add(new JLabel("Antialiasing:"), fgbc);
+        fgbc.gridx = 1;
+        fontPanel.add(antialiasingComboBox, fgbc);
+
+        optionsPanel.add(fontPanel);
+        optionsPanel.add(Box.createVerticalStrut(10));
+
+        // View settings panel
+        JPanel viewPanel = new JPanel(new GridBagLayout());
+        viewPanel.setBorder(BorderFactory.createTitledBorder("View"));
+        viewPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(3, 5, 3, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        // View Mode
+        gbc.gridx = 0; gbc.gridy = 0;
+        viewPanel.add(new JLabel("View Mode:"), gbc);
+        gbc.gridx = 1;
+        viewPanel.add(viewModeComboBox, gbc);
+
+        // Code Type
+        gbc.gridx = 0; gbc.gridy = 1;
+        viewPanel.add(new JLabel("Code Type:"), gbc);
+        gbc.gridx = 1;
+        viewPanel.add(codeTypeComboBox, gbc);
+
+        // Hex Characters Case
+        gbc.gridx = 0; gbc.gridy = 2;
+        viewPanel.add(new JLabel("Hex Case:"), gbc);
+        gbc.gridx = 1;
+        viewPanel.add(hexCharactersModeComboBox, gbc);
+
+        // Row Wrapping
+        String[] wrappingModes = {"No Wrapping", "Wrapping"};
+        javax.swing.JComboBox<String> rowWrappingComboBox = new javax.swing.JComboBox<>(wrappingModes);
+        rowWrappingComboBox.addActionListener(e -> {
+            if (codeArea != null) {
+                RowWrappingMode mode = rowWrappingComboBox.getSelectedIndex() == 0 ?
+                    RowWrappingMode.NO_WRAPPING : RowWrappingMode.WRAPPING;
+                codeArea.setRowWrapping(mode);
+            }
+        });
+        gbc.gridx = 0; gbc.gridy = 3;
+        viewPanel.add(new JLabel("Row Wrapping:"), gbc);
+        gbc.gridx = 1;
+        viewPanel.add(rowWrappingComboBox, gbc);
+
+        // Max Bytes Per Row
+        Integer[] bytesPerRowOptions = {8, 16, 24, 32, 48, 64};
+        javax.swing.JComboBox<Integer> bytesPerRowComboBox = new javax.swing.JComboBox<>(bytesPerRowOptions);
+        bytesPerRowComboBox.setSelectedItem(16);
+        bytesPerRowComboBox.addActionListener(e -> {
+            if (codeArea != null) {
+                codeArea.setMaxBytesPerRow((Integer) bytesPerRowComboBox.getSelectedItem());
+            }
+        });
+        gbc.gridx = 0; gbc.gridy = 4;
+        viewPanel.add(new JLabel("Bytes Per Row:"), gbc);
+        gbc.gridx = 1;
+        viewPanel.add(bytesPerRowComboBox, gbc);
+
+        optionsPanel.add(viewPanel);
+        optionsPanel.add(Box.createVerticalStrut(10));
+
+        // Display settings panel
+        JPanel displayPanel = new JPanel(new GridBagLayout());
+        displayPanel.setBorder(BorderFactory.createTitledBorder("Display"));
+        displayPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        GridBagConstraints dgbc = new GridBagConstraints();
+        dgbc.insets = new Insets(3, 5, 3, 5);
+        dgbc.anchor = GridBagConstraints.WEST;
+
+        // Show Mirror Cursor
+        dgbc.gridx = 0; dgbc.gridy = 0; dgbc.gridwidth = 2;
+        displayPanel.add(showShadowCursorCheckBox, dgbc);
+
+        // Scrollbar visibility
+        dgbc.gridwidth = 1;
+        dgbc.gridx = 0; dgbc.gridy = 1;
+        displayPanel.add(new JLabel("Vertical Scrollbar:"), dgbc);
+        dgbc.gridx = 1;
+        displayPanel.add(verticalScrollBarVisibilityComboBox, dgbc);
+
+        dgbc.gridx = 0; dgbc.gridy = 2;
+        displayPanel.add(new JLabel("Horizontal Scrollbar:"), dgbc);
+        dgbc.gridx = 1;
+        displayPanel.add(horizontalScrollBarVisibilityComboBox, dgbc);
+
+        optionsPanel.add(displayPanel);
+        optionsPanel.add(Box.createVerticalStrut(10));
+
+        // Edit settings panel
+        JPanel editPanel = new JPanel(new GridBagLayout());
+        editPanel.setBorder(BorderFactory.createTitledBorder("Editing"));
+        editPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        GridBagConstraints egbc = new GridBagConstraints();
+        egbc.insets = new Insets(3, 5, 3, 5);
+        egbc.anchor = GridBagConstraints.WEST;
+
+        // Edit Mode
+        String[] editModes = {"Read Only", "Expanding", "Capped", "Inplace"};
+        javax.swing.JComboBox<String> editModeComboBox = new javax.swing.JComboBox<>(editModes);
+        editModeComboBox.setSelectedIndex(1); // Default to Expanding
+        editModeComboBox.addActionListener(e -> {
+            if (codeArea != null) {
+                EditMode[] modes = EditMode.values();
+                codeArea.setEditMode(modes[editModeComboBox.getSelectedIndex()]);
+            }
+        });
+        egbc.gridx = 0; egbc.gridy = 0;
+        editPanel.add(new JLabel("Edit Mode:"), egbc);
+        egbc.gridx = 1;
+        editPanel.add(editModeComboBox, egbc);
+
+        // Edit Operation
+        String[] editOps = {"Insert", "Overwrite"};
+        javax.swing.JComboBox<String> editOpComboBox = new javax.swing.JComboBox<>(editOps);
+        editOpComboBox.addActionListener(e -> {
+            if (codeArea != null) {
+                EditOperation op = editOpComboBox.getSelectedIndex() == 0 ?
+                    EditOperation.INSERT : EditOperation.OVERWRITE;
+                codeArea.setEditOperation(op);
+            }
+        });
+        egbc.gridx = 0; egbc.gridy = 1;
+        editPanel.add(new JLabel("Edit Operation:"), egbc);
+        egbc.gridx = 1;
+        editPanel.add(editOpComboBox, egbc);
+
+        // Character Encoding
+        String[] charsets = {"UTF-8", "ISO-8859-1", "US-ASCII", "UTF-16", "UTF-16BE", "UTF-16LE"};
+        javax.swing.JComboBox<String> charsetComboBox = new javax.swing.JComboBox<>(charsets);
+        charsetComboBox.setSelectedItem("UTF-8");
+        charsetComboBox.addActionListener(e -> {
+            if (codeArea != null) {
+                String charsetName = (String) charsetComboBox.getSelectedItem();
+                codeArea.setCharset(Charset.forName(charsetName));
+            }
+        });
+        egbc.gridx = 0; egbc.gridy = 2;
+        editPanel.add(new JLabel("Encoding:"), egbc);
+        egbc.gridx = 1;
+        editPanel.add(charsetComboBox, egbc);
+
+        optionsPanel.add(editPanel);
+        optionsPanel.add(Box.createVerticalStrut(10));
+
+        // Background settings panel
+        JPanel bgPanel = new JPanel(new GridBagLayout());
+        bgPanel.setBorder(BorderFactory.createTitledBorder("Background"));
+        bgPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        GridBagConstraints bgbc = new GridBagConstraints();
+        bgbc.insets = new Insets(3, 5, 3, 5);
+        bgbc.anchor = GridBagConstraints.WEST;
+
+        // Background Paint Mode
+        String[] bgModes = {"Transparent", "Plain", "Striped"};
+        javax.swing.JComboBox<String> bgModeComboBox = new javax.swing.JComboBox<>(bgModes);
+        bgModeComboBox.setSelectedIndex(1); // Default to Plain
+        bgModeComboBox.addActionListener(e -> {
+            if (codeArea != null) {
+                BasicBackgroundPaintMode[] modes = BasicBackgroundPaintMode.values();
+                codeArea.setBackgroundPaintMode(modes[bgModeComboBox.getSelectedIndex()]);
+            }
+        });
+        bgbc.gridx = 0; bgbc.gridy = 0;
+        bgPanel.add(new JLabel("Paint Mode:"), bgbc);
+        bgbc.gridx = 1;
+        bgPanel.add(bgModeComboBox, bgbc);
+
+        optionsPanel.add(bgPanel);
+
+        // Add to tabbedPane
+        tabbedPane.addTab("Options", optionsTab);
+        tabMap.put(optionsTab, optionsPanel);
+    }
+
     // Collapsible settings panel setup
     private void setupCollapsibleSettings() {
         // Create toggle button
@@ -362,6 +612,9 @@ public class DeltaHexPanel extends javax.swing.JPanel {
                     splitPane.setDividerLocation(0);
                     toggleSettingsButton.setText("▶");
                     toggleSettingsButton.setToolTipText("Expand settings panel");
+                    if (expandSettingsLink != null) {
+                        expandSettingsLink.setVisible(true);
+                    }
                 });
             } else {
                 splitPane.setDividerLocation(lastDividerLocation);
@@ -376,6 +629,9 @@ public class DeltaHexPanel extends javax.swing.JPanel {
             toggleSettingsButton.setText("◀");
             toggleSettingsButton.setToolTipText("Collapse settings panel");
             settingsCollapsed = false;
+            if (expandSettingsLink != null) {
+                expandSettingsLink.setVisible(false);
+            }
         } else {
             // Collapse - store current location first
             lastDividerLocation = splitPane.getDividerLocation();
@@ -383,6 +639,9 @@ public class DeltaHexPanel extends javax.swing.JPanel {
             toggleSettingsButton.setText("▶");
             toggleSettingsButton.setToolTipText("Expand settings panel");
             settingsCollapsed = true;
+            if (expandSettingsLink != null) {
+                expandSettingsLink.setVisible(true);
+            }
         }
 
         // Persist state
@@ -414,13 +673,6 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         themeComboBox = new javax.swing.JComboBox<>(new String[]{"Light", "Dark", "High Contrast", "Custom"});
         themeComboBox.addActionListener(e -> applySelectedTheme());
         themePanel.add(themeComboBox, tgbc);
-
-        // Show Advanced checkbox
-        tgbc.gridx = 0; tgbc.gridy = 1; tgbc.gridwidth = 2;
-        showAdvancedCheckBox = new javax.swing.JCheckBox("Show Advanced Settings");
-        showAdvancedCheckBox.setSelected(showAdvancedTabs);
-        showAdvancedCheckBox.addActionListener(e -> toggleAdvancedTabs());
-        themePanel.add(showAdvancedCheckBox, tgbc);
 
         colorsPanel.add(themePanel);
         colorsPanel.add(Box.createVerticalStrut(10));
@@ -472,13 +724,14 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         gbc.gridx = 2; charColorsPanel.add(unprintableBgCheckBox, gbc);
         gbc.gridx = 3; charColorsPanel.add(unprintableBgButton, gbc);
 
-        // Space characters (no text color, just background)
+        // Space characters
+        spaceColorButton = createColorButton("Space", Color.BLACK);
         spaceBgButton = createColorButton("Bg", Color.WHITE);
         spaceBgCheckBox = new javax.swing.JCheckBox("Custom");
         spaceBgButton.setEnabled(false);
         gbc.gridy = 4;
         gbc.gridx = 0; charColorsPanel.add(new JLabel("Space:"), gbc);
-        gbc.gridx = 1; charColorsPanel.add(new JLabel(""), gbc); // No text color for space
+        gbc.gridx = 1; charColorsPanel.add(spaceColorButton, gbc);
         gbc.gridx = 2; charColorsPanel.add(spaceBgCheckBox, gbc);
         gbc.gridx = 3; charColorsPanel.add(spaceBgButton, gbc);
 
@@ -579,6 +832,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
             if (newColor != null) {
                 hextraPainter.setPrintableColor(newColor);
                 printableColorButton.setBackground(newColor);
+                codeArea.resetPainter();
                 codeArea.repaint();
                 if (settingsManager != null) {
                     settingsManager.saveColor(SettingsManager.KEY_PRINTABLE_COLOR, newColor);
@@ -591,6 +845,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
             if (newColor != null) {
                 hextraPainter.setNullByteColor(newColor);
                 nullByteColorButton.setBackground(newColor);
+                codeArea.resetPainter();
                 codeArea.repaint();
                 if (settingsManager != null) {
                     settingsManager.saveColor(SettingsManager.KEY_NULL_BYTE_COLOR, newColor);
@@ -603,9 +858,23 @@ public class DeltaHexPanel extends javax.swing.JPanel {
             if (newColor != null) {
                 hextraPainter.setUnprintableColor(newColor);
                 unprintableColorButton.setBackground(newColor);
+                codeArea.resetPainter();
                 codeArea.repaint();
                 if (settingsManager != null) {
                     settingsManager.saveColor(SettingsManager.KEY_UNPRINTABLE_COLOR, newColor);
+                }
+            }
+        });
+
+        spaceColorButton.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "Space Character Color", hextraPainter.getSpaceColor());
+            if (newColor != null) {
+                hextraPainter.setSpaceColor(newColor);
+                spaceColorButton.setBackground(newColor);
+                codeArea.resetPainter();
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveColor(SettingsManager.KEY_SPACE_COLOR, newColor);
                 }
             }
         });
@@ -753,6 +1022,10 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         hextraPainter.setUnprintableColor(unprintableColor);
         if (unprintableColorButton != null) unprintableColorButton.setBackground(unprintableColor);
 
+        Color spaceColor = settingsManager.loadColor(SettingsManager.KEY_SPACE_COLOR, Color.BLACK);
+        hextraPainter.setSpaceColor(spaceColor);
+        if (spaceColorButton != null) spaceColorButton.setBackground(spaceColor);
+
         // Load region colors
         Color requestLineBg = settingsManager.loadColor(SettingsManager.KEY_REQUEST_LINE_BG, new Color(255, 245, 238));
         hextraPainter.setRequestLineBgColor(requestLineBg);
@@ -834,6 +1107,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         hextraPainter.setPrintableColor(Color.BLACK);
         hextraPainter.setNullByteColor(Color.RED);
         hextraPainter.setUnprintableColor(Color.BLUE);
+        hextraPainter.setSpaceColor(Color.BLACK);
 
         // Reset region background colors to defaults
         hextraPainter.setRequestLineBgColor(new Color(255, 245, 238));  // Seashell
@@ -851,6 +1125,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         if (printableColorButton != null) printableColorButton.setBackground(Color.BLACK);
         if (nullByteColorButton != null) nullByteColorButton.setBackground(Color.RED);
         if (unprintableColorButton != null) unprintableColorButton.setBackground(Color.BLUE);
+        if (spaceColorButton != null) spaceColorButton.setBackground(Color.BLACK);
 
         if (requestLineBgButton != null) requestLineBgButton.setBackground(new Color(255, 245, 238));
         if (headersBgButton != null) headersBgButton.setBackground(new Color(240, 255, 240));
@@ -943,6 +1218,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         hextraPainter.setPrintableColor(theme.getPrintableColor());
         hextraPainter.setNullByteColor(theme.getNullByteColor());
         hextraPainter.setUnprintableColor(theme.getUnprintableColor());
+        hextraPainter.setSpaceColor(theme.getSpaceColor());
 
         // Apply region background colors
         hextraPainter.setRequestLineBgColor(theme.getRequestLineBg());
@@ -972,6 +1248,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         if (printableColorButton != null) printableColorButton.setBackground(theme.getPrintableColor());
         if (nullByteColorButton != null) nullByteColorButton.setBackground(theme.getNullByteColor());
         if (unprintableColorButton != null) unprintableColorButton.setBackground(theme.getUnprintableColor());
+        if (spaceColorButton != null) spaceColorButton.setBackground(theme.getSpaceColor());
 
         if (requestLineBgButton != null) requestLineBgButton.setBackground(theme.getRequestLineBg());
         if (headersBgButton != null) headersBgButton.setBackground(theme.getHeadersBg());
@@ -1004,6 +1281,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         settingsManager.saveColor(SettingsManager.KEY_PRINTABLE_COLOR, hextraPainter.getPrintableColor());
         settingsManager.saveColor(SettingsManager.KEY_NULL_BYTE_COLOR, hextraPainter.getNullByteColor());
         settingsManager.saveColor(SettingsManager.KEY_UNPRINTABLE_COLOR, hextraPainter.getUnprintableColor());
+        settingsManager.saveColor(SettingsManager.KEY_SPACE_COLOR, hextraPainter.getSpaceColor());
 
         settingsManager.saveColor(SettingsManager.KEY_REQUEST_LINE_BG, hextraPainter.getRequestLineBgColor());
         settingsManager.saveColor(SettingsManager.KEY_HEADERS_BG, hextraPainter.getHeadersBgColor());

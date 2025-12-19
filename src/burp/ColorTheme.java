@@ -13,6 +13,7 @@ public class ColorTheme {
     private Color printableColor;
     private Color nullByteColor;
     private Color unprintableColor;
+    private Color spaceColor;
 
     // Region background colors
     private Color requestLineBg;
@@ -32,13 +33,14 @@ public class ColorTheme {
 
     // Create a theme with all colors specified
     public ColorTheme(String name,
-                      Color printableColor, Color nullByteColor, Color unprintableColor,
+                      Color printableColor, Color nullByteColor, Color unprintableColor, Color spaceColor,
                       Color requestLineBg, Color headersBg, Color bodyBg, Color defaultBg,
                       Color printableBg, Color nullByteBg, Color unprintableBg, Color spaceBg) {
         this.name = name;
         this.printableColor = printableColor;
         this.nullByteColor = nullByteColor;
         this.unprintableColor = unprintableColor;
+        this.spaceColor = spaceColor;
         this.requestLineBg = requestLineBg;
         this.headersBg = headersBg;
         this.bodyBg = bodyBg;
@@ -55,6 +57,7 @@ public class ColorTheme {
             Color.BLACK,                        // printableColor
             Color.RED,                          // nullByteColor
             Color.BLUE,                         // unprintableColor
+            Color.BLACK,                        // spaceColor
             new Color(255, 245, 238),           // requestLineBg (Seashell)
             new Color(240, 255, 240),           // headersBg (Honeydew)
             new Color(240, 248, 255),           // bodyBg (AliceBlue)
@@ -68,6 +71,7 @@ public class ColorTheme {
             new Color(200, 200, 200),           // printableColor (light gray)
             new Color(255, 100, 100),           // nullByteColor (soft red)
             new Color(100, 150, 255),           // unprintableColor (soft blue)
+            new Color(200, 200, 200),           // spaceColor (light gray)
             new Color(50, 45, 55),              // requestLineBg (dark purple-ish)
             new Color(40, 50, 40),              // headersBg (dark green)
             new Color(40, 45, 55),              // bodyBg (dark blue)
@@ -81,6 +85,7 @@ public class ColorTheme {
             Color.BLACK,                        // printableColor
             new Color(220, 0, 0),               // nullByteColor (bright red)
             new Color(0, 0, 220),               // unprintableColor (bright blue)
+            Color.BLACK,                        // spaceColor
             new Color(255, 255, 200),           // requestLineBg (bright yellow)
             new Color(200, 255, 200),           // headersBg (bright green)
             new Color(200, 200, 255),           // bodyBg (bright blue)
@@ -120,6 +125,14 @@ public class ColorTheme {
 
     public void setUnprintableColor(Color unprintableColor) {
         this.unprintableColor = unprintableColor;
+    }
+
+    public Color getSpaceColor() {
+        return spaceColor;
+    }
+
+    public void setSpaceColor(Color spaceColor) {
+        this.spaceColor = spaceColor;
     }
 
     public Color getRequestLineBg() {

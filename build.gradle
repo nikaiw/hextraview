@@ -41,6 +41,8 @@ sourceSets {
 task generateBuildInfo {
     def outputDir = file("build/generated/sources/buildinfo/burp")
     outputs.dir outputDir
+    // Always regenerate to get fresh timestamp and commit hash
+    outputs.upToDateWhen { false }
 
     doLast {
         outputDir.mkdirs()

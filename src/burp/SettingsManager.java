@@ -50,6 +50,7 @@ public class SettingsManager {
     public static final String KEY_PRINTABLE_COLOR = "printableColor";
     public static final String KEY_NULL_BYTE_COLOR = "nullByteColor";
     public static final String KEY_UNPRINTABLE_COLOR = "unprintableColor";
+    public static final String KEY_SPACE_COLOR = "spaceColor";
 
     // Color keys - character background colors (null/empty = use region bg)
     public static final String KEY_PRINTABLE_BG = "printableBgColor";

@@ -33,6 +33,7 @@ public class HextraCodeAreaPainter implements CodeAreaColorAssessor {
     private Color printableColor = Color.BLACK;
     private Color nullByteColor = Color.RED;
     private Color unprintableColor = Color.BLUE;
+    private Color spaceColor = Color.BLACK;
 
     // Character background colors (null = use region background)
     private Color printableBgColor = null;
@@ -123,6 +124,14 @@ public class HextraCodeAreaPainter implements CodeAreaColorAssessor {
 
     public void setUnprintableColor(Color color) {
         this.unprintableColor = color;
+    }
+
+    public void setSpaceColor(Color color) {
+        this.spaceColor = color;
+    }
+
+    public Color getSpaceColor() {
+        return spaceColor;
     }
 
     public void setCharacterColors(Color printable, Color nullByte, Color unprintable) {
@@ -277,37 +286,58 @@ public class HextraCodeAreaPainter implements CodeAreaColorAssessor {
 
     // CodeAreaColorAssessor implementation
     @Override
-    public Color getPositionTextColor(long position, int byteOnRow, int charOnRow,
+    public Color getPositionTextColor(long rowDataPosition, int byteOnRow, int charOnRow,
                                        CodeAreaSection section, boolean inSelection) {
         if (inSelection) {
             // Use default selection text color
             return null;
         }
 
+        // Calculate actual byte position: row start + byte offset on row
+        long dataPosition = rowDataPosition + byteOnRow;
+
         BinaryData data = codeArea.getContentData();
-        if (data != null && position < data.getDataSize()) {
-            byte b = data.getByte(position);
+        if (data != null && dataPosition < data.getDataSize()) {
+            byte b = data.getByte(dataPosition);
             char c = (char) (b & 0xFF);
-            return getColorForChar(c);
+
+            // Check for space character first
+            if (c == ' ') {
+                return spaceColor;
+            }
+
+            CharType type = getCharacterType(c);
+            switch (type) {
+                case NULL_BYTE:
+                    return nullByteColor;
+                case UNPRINTABLE:
+                    return unprintableColor;
+                case PRINTABLE:
+                default:
+                    return printableColor;
+            }
         }
         return printableColor;
     }
 
     @Override
-    public Color getPositionBackgroundColor(long position, int byteOnRow, int charOnRow,
+    public Color getPositionBackgroundColor(long rowDataPosition, int byteOnRow, int charOnRow,
                                              CodeAreaSection section, boolean inSelection) {
         if (inSelection) {
             // Use default selection background
             return null;
         }
 
+        // Calculate actual byte position: row start + byte offset on row
+        long dataPosition = rowDataPosition + byteOnRow;
+
         BinaryData data = codeArea.getContentData();
-        if (data != null && position < data.getDataSize()) {
-            byte b = data.getByte(position);
+        if (data != null && dataPosition < data.getDataSize()) {
+            byte b = data.getByte(dataPosition);
             char c = (char) (b & 0xFF);
-            return getBackgroundForChar(c, position);
+            return getBackgroundForChar(c, dataPosition);
         }
-        return getRegionBackgroundColor(position);
+        return getRegionBackgroundColor(dataPosition);
     }
 
     @Override
