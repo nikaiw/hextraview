@@ -1,20 +1,33 @@
 package burp;
 
-import org.exbin.deltahex.swing.CodeArea;
-import org.exbin.deltahex.swing.DefaultCodeAreaPainter;
-import org.exbin.deltahex.Section;
-import org.exbin.deltahex.swing.ColorsGroup;
+import org.exbin.bined.swing.basic.CodeArea;
+import org.exbin.bined.swing.CodeAreaColorAssessor;
+import org.exbin.bined.swing.CodeAreaPaintState;
+import org.exbin.bined.CodeAreaSection;
+import org.exbin.auxiliary.binary_data.BinaryData;
 
 import java.awt.*;
 import java.util.HashMap;
+import java.util.Optional;
 
-public class HextraCodeAreaPainter extends DefaultCodeAreaPainter {
+/**
+ * Custom color assessor for the hex editor that provides:
+ * - Character type coloring (printable, null, unprintable)
+ * - HTTP region background coloring
+ */
+public class HextraCodeAreaPainter implements CodeAreaColorAssessor {
 
     // Character type classification
     public enum CharType { PRINTABLE, NULL_BYTE, UNPRINTABLE }
 
+    // Reference to the code area
+    private CodeArea codeArea;
+
     // Character type mapping
     private HashMap<Character, CharType> characterTypeMapping;
+
+    // Unprintable character visual mapping
+    private HashMap<Character, Character> unprintableCharactersMapping;
 
     // Configurable character text colors
     private Color printableColor = Color.BLACK;
@@ -22,21 +35,21 @@ public class HextraCodeAreaPainter extends DefaultCodeAreaPainter {
     private Color unprintableColor = Color.BLUE;
 
     // Character background colors (null = use region background)
-    private Color printableBgColor = null;      // null means use region bg
-    private Color nullByteBgColor = null;       // null means use region bg
-    private Color unprintableBgColor = null;    // null means use region bg
-    private Color spaceBgColor = null;          // null means use region bg
+    private Color printableBgColor = null;
+    private Color nullByteBgColor = null;
+    private Color unprintableBgColor = null;
+    private Color spaceBgColor = null;
 
     // HTTP region parser and colors
     private HttpRegionParser regionParser;
     private Color requestLineBg = new Color(255, 245, 238);  // Seashell
     private Color headersBg = new Color(240, 255, 240);      // Honeydew
     private Color bodyBg = new Color(240, 248, 255);         // AliceBlue
-    private Color defaultBg = new Color(255, 255, 255);      // White (default/fallback)
+    private Color defaultBg = new Color(255, 255, 255);      // White
     private boolean regionColoringEnabled = true;
 
     public HextraCodeAreaPainter(CodeArea codeArea) {
-        super(codeArea);
+        this.codeArea = codeArea;
         buildCharacterTypeMapping();
         buildUnprintableCharactersMapping();
     }
@@ -131,7 +144,7 @@ public class HextraCodeAreaPainter extends DefaultCodeAreaPainter {
         return unprintableColor;
     }
 
-    // Character background color setters/getters (null = use region background)
+    // Character background color setters/getters
     public void setPrintableBgColor(Color color) {
         this.printableBgColor = color;
     }
@@ -164,7 +177,7 @@ public class HextraCodeAreaPainter extends DefaultCodeAreaPainter {
         return spaceBgColor;
     }
 
-    // Get background color for a specific character (considers custom bg or falls back to region bg)
+    // Get background color for a specific character
     public Color getBackgroundForChar(char c, long dataPosition) {
         Color regionBg = getRegionBackgroundColor(dataPosition);
 
@@ -262,51 +275,75 @@ public class HextraCodeAreaPainter extends DefaultCodeAreaPainter {
         }
     }
 
+    // CodeAreaColorAssessor implementation
     @Override
-    public void paintLineBackground(Graphics g, int lineStart, int lineEnd, PaintData paintData) {
-        // Get region background color for this line's data position
-        long lineDataPosition = paintData.getLineDataPosition();
-        Color regionBg = getRegionBackgroundColor(lineDataPosition);
-
-        if (regionBg != null && regionColoringEnabled) {
-            // Paint the entire line with region background
-            Rectangle rect = paintData.getCodeSectionRect();
-            int lineHeight = paintData.getLineHeight();
-            int y = rect.y + (int)(paintData.getLine() - paintData.getScrollPosition().getScrollLinePosition()) * lineHeight;
-
-            g.setColor(regionBg);
-            g.fillRect(rect.x, y, rect.width, lineHeight);
+    public Color getPositionTextColor(long position, int byteOnRow, int charOnRow,
+                                       CodeAreaSection section, boolean inSelection) {
+        if (inSelection) {
+            // Use default selection text color
+            return null;
         }
 
-        // Call parent to handle selection and other backgrounds
-        super.paintLineBackground(g, lineStart, lineEnd, paintData);
+        BinaryData data = codeArea.getContentData();
+        if (data != null && position < data.getDataSize()) {
+            byte b = data.getByte(position);
+            char c = (char) (b & 0xFF);
+            return getColorForChar(c);
+        }
+        return printableColor;
     }
 
     @Override
-    public Color getPositionColor(int byteOnLine, int charOnLine, Section section, ColorsGroup.ColorType colorType, PaintData paintData) {
-        // For text color, apply character type coloring
-        if (colorType == ColorsGroup.ColorType.TEXT || colorType == ColorsGroup.ColorType.UNPRINTABLES) {
-            // Get the actual byte at this position
-            long dataPosition = paintData.getLineDataPosition() + byteOnLine;
-            if (codeArea.getData() != null && dataPosition < codeArea.getDataSize()) {
-                byte b = codeArea.getData().getByte(dataPosition);
-                char c = (char) (b & 0xFF);
-                return getColorForChar(c);
-            }
+    public Color getPositionBackgroundColor(long position, int byteOnRow, int charOnRow,
+                                             CodeAreaSection section, boolean inSelection) {
+        if (inSelection) {
+            // Use default selection background
+            return null;
         }
 
-        // For background colors in data area, use character-specific or region coloring
-        if (colorType == ColorsGroup.ColorType.BACKGROUND) {
-            long dataPosition = paintData.getLineDataPosition() + byteOnLine;
-            if (codeArea.getData() != null && dataPosition < codeArea.getDataSize()) {
-                byte b = codeArea.getData().getByte(dataPosition);
-                char c = (char) (b & 0xFF);
-                return getBackgroundForChar(c, dataPosition);
-            }
-            // Fallback to region background
-            return getRegionBackgroundColor(dataPosition);
+        BinaryData data = codeArea.getContentData();
+        if (data != null && position < data.getDataSize()) {
+            byte b = data.getByte(position);
+            char c = (char) (b & 0xFF);
+            return getBackgroundForChar(c, position);
         }
+        return getRegionBackgroundColor(position);
+    }
 
-        return super.getPositionColor(byteOnLine, charOnLine, section, colorType, paintData);
+    @Override
+    public Optional<CodeAreaColorAssessor> getParentColorAssessor() {
+        return Optional.empty();
+    }
+
+    @Override
+    public void startPaint(CodeAreaPaintState paintState) {
+        // No initialization needed for each paint cycle
+    }
+
+    // Apply theme colors
+    public void applyTheme(ColorTheme theme) {
+        if (theme == null) return;
+
+        // Text colors
+        if (theme.getPrintableColor() != null) setPrintableColor(theme.getPrintableColor());
+        if (theme.getNullByteColor() != null) setNullByteColor(theme.getNullByteColor());
+        if (theme.getUnprintableColor() != null) setUnprintableColor(theme.getUnprintableColor());
+
+        // Region backgrounds
+        if (theme.getRequestLineBg() != null) setRequestLineBgColor(theme.getRequestLineBg());
+        if (theme.getHeadersBg() != null) setHeadersBgColor(theme.getHeadersBg());
+        if (theme.getBodyBg() != null) setBodyBgColor(theme.getBodyBg());
+        if (theme.getDefaultBg() != null) setDefaultBgColor(theme.getDefaultBg());
+
+        // Character backgrounds (can be null)
+        setPrintableBgColor(theme.getPrintableBg());
+        setNullByteBgColor(theme.getNullByteBg());
+        setUnprintableBgColor(theme.getUnprintableBg());
+        setSpaceBgColor(theme.getSpaceBg());
+    }
+
+    // Get unprintable character mapping for display
+    public HashMap<Character, Character> getUnprintableCharactersMapping() {
+        return unprintableCharactersMapping;
     }
 }

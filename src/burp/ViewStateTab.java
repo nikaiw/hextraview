@@ -1,8 +1,9 @@
 package burp;
 
-import org.exbin.deltahex.SelectionRange;
-import org.exbin.deltahex.swing.CodeArea;
-import org.exbin.utils.binary_data.ByteArrayEditableData;
+import org.exbin.bined.SelectionRange;
+import org.exbin.bined.swing.basic.CodeArea;
+import org.exbin.bined.swing.capability.ColorAssessorPainterCapable;
+import org.exbin.auxiliary.binary_data.array.ByteArrayEditableData;
 
 import java.awt.*;
 import java.util.Arrays;
@@ -36,11 +37,15 @@ public class ViewStateTab implements IMessageEditorTab {
         codeAreaPainter.setRegionParser(regionParser);
 
         this.data = new ByteArrayEditableData();
-        hexEditor.setData(data);
-        hexEditor.setPainter(codeAreaPainter);
+        hexEditor.setContentData(data);
 
-        // Set up painter and settings manager BEFORE setCodeArea (order matters!)
-        this.hexPanel.setPainter(codeAreaPainter);
+        // Set our custom color assessor on the default painter
+        if (hexEditor.getPainter() instanceof ColorAssessorPainterCapable) {
+            ((ColorAssessorPainterCapable) hexEditor.getPainter()).setColorAssessor(codeAreaPainter);
+        }
+
+        // Set up color assessor and settings manager BEFORE setCodeArea (order matters!)
+        this.hexPanel.setColorAssessor(codeAreaPainter);
         this.hexPanel.setSettingsManager(settingsManager);
 
         // Now set the code area (this sets up listeners that need the painter)
@@ -76,8 +81,11 @@ public class ViewStateTab implements IMessageEditorTab {
         this.codeAreaPainter.setRegionParser(regionParser);
 
         // Update hex editor data
-        this.data.setData(content);
-        this.hexEditor.setData(this.data);
+        this.data.clear();
+        if (content.length > 0) {
+            this.data.insert(0, content);
+        }
+        this.hexEditor.setContentData(this.data);
         this.hexEditor.repaint();
 
         // Sync raw view
