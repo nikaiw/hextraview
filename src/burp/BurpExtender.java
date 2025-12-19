@@ -4,7 +4,6 @@ import java.io.PrintWriter;
 
 public class BurpExtender implements IBurpExtender, IExtensionStateListener {
 
-    public static final String VERSION = "1.1.0";
     private PrintWriter stdout;
 
     @Override
@@ -15,7 +14,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
         stdout = new PrintWriter(callbacks.getStdout(), true);
         stdout.println("===========================================");
         stdout.println("  HextraView - Enhanced Hex Editor");
-        stdout.println("  Version: " + VERSION);
+        stdout.println("  Version: " + BuildInfo.VERSION);
         stdout.println("  Build:   " + BuildInfo.BUILD_TIMESTAMP);
         stdout.println("  Commit:  " + BuildInfo.GIT_COMMIT);
         stdout.println("===========================================");

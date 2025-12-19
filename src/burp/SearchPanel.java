@@ -227,7 +227,7 @@ public class SearchPanel extends JPanel {
             performRegexSearch(data, searchText);
         } else if (isHexSearch) {
             // Hex search
-            byte[] searchBytes = parseHexString(searchText);
+            byte[] searchBytes = HexUtils.parseHexString(searchText);
             if (searchBytes == null) {
                 statusLabel.setText("Invalid hex");
                 statusLabel.setForeground(Color.RED);
@@ -318,26 +318,6 @@ public class SearchPanel extends JPanel {
                 matches.add(new SearchMatch(start, length));
                 matchedStrings.add(matcher.group());  // Store matched text for replacement
             }
-        }
-    }
-
-    private byte[] parseHexString(String hex) {
-        // Remove spaces and common separators
-        hex = hex.replaceAll("[\\s,:-]", "");
-
-        // Must be even length
-        if (hex.length() % 2 != 0) {
-            return null;
-        }
-
-        try {
-            byte[] result = new byte[hex.length() / 2];
-            for (int i = 0; i < result.length; i++) {
-                result[i] = (byte) Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
-            }
-            return result;
-        } catch (NumberFormatException e) {
-            return null;
         }
     }
 
@@ -492,7 +472,7 @@ public class SearchPanel extends JPanel {
         boolean isRegexSearch = regexCheck.isSelected() && !isHexSearch;
 
         if (isHexSearch) {
-            byte[] bytes = parseHexString(replaceText);
+            byte[] bytes = HexUtils.parseHexString(replaceText);
             if (bytes == null && !replaceText.isEmpty()) {
                 statusLabel.setText("Invalid hex");
                 statusLabel.setForeground(Color.RED);

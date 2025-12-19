@@ -43,13 +43,37 @@ Multiple built-in themes: Light, Dark, High Contrast, Monokai, Solarized (Dark/L
 2. In Burp Suite: Extensions > Add > Select the JAR file
 3. The "Hextraview" tab will appear in message editors
 
-## Building from Source
+## Development
+
+### Prerequisites
+- Java 11 or higher
+- Gradle 7+
+- Burp Suite JAR (for compilation)
+
+### Building from Source
 
 ```bash
 gradle build
 ```
 
 The built JAR will be in `build/libs/hextraview-x.x.x.jar`
+
+### Project Structure
+
+```
+src/burp/
+├── BurpExtender.java          # Extension entry point
+├── ViewStateTab.java          # Burp tab integration
+├── DeltaHexPanel.java         # Main hex editor panel
+├── HexviewCodeArea.java       # Custom CodeArea with undo/redo
+├── HextraCodeAreaPainter.java # Color styling
+├── SearchPanel.java           # Search/replace functionality
+├── HexContextMenu.java        # Right-click context menu
+├── HexUtils.java              # Hex conversion utilities
+└── SettingsManager.java       # Settings persistence
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## Keyboard Shortcuts
 
@@ -72,8 +96,6 @@ The built JAR will be in `build/libs/hextraview-x.x.x.jar`
 - December 2025: v1.1.0 - Major update with bined library, search/replace, context menu, themes (vibe coded)
 
 ## Todo / Requests
-
-- ?
 
 PR are more than welcome ;)
 

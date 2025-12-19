@@ -181,13 +181,13 @@ public class HexContextMenu extends JPopupMenu {
     private void copyAsHex() {
         byte[] bytes = getSelectedBytes();
         if (bytes.length == 0) return;
-        copyToClipboard(toHexString(bytes));
+        copyToClipboard(HexUtils.toHexString(bytes));
     }
 
     private void copyAsCArray() {
         byte[] bytes = getSelectedBytes();
         if (bytes.length == 0) return;
-        copyToClipboard(toCArrayString(bytes));
+        copyToClipboard(HexUtils.toCArrayString(bytes));
     }
 
     private void copyAsBase64() {
@@ -199,25 +199,6 @@ public class HexContextMenu extends JPopupMenu {
     private void copyToClipboard(String text) {
         StringSelection selection = new StringSelection(text);
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
-    }
-
-    // ========== Format Conversions ==========
-
-    private String toHexString(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < bytes.length; i++) {
-            if (i > 0) sb.append(' ');
-            sb.append(String.format("%02X", bytes[i] & 0xFF));
-        }
-        return sb.toString();
-    }
-
-    private String toCArrayString(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("\\x%02X", b & 0xFF));
-        }
-        return sb.toString();
     }
 
     // ========== Paste Operations ==========
@@ -263,7 +244,7 @@ public class HexContextMenu extends JPopupMenu {
         String text = getClipboardText();
         if (text == null) return;
 
-        byte[] bytes = parseHexString(text);
+        byte[] bytes = HexUtils.parseHexString(text);
         if (bytes == null) {
             JOptionPane.showMessageDialog(getParentFrame(),
                 "Invalid hex format in clipboard.",
@@ -284,26 +265,6 @@ public class HexContextMenu extends JPopupMenu {
             JOptionPane.showMessageDialog(getParentFrame(),
                 "Invalid Base64 format in clipboard.",
                 "Paste from Base64", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private byte[] parseHexString(String hex) {
-        // Remove common separators and whitespace
-        hex = hex.replaceAll("[\\s,:\\-]", "");
-
-        // Must be even length
-        if (hex.length() % 2 != 0) {
-            return null;
-        }
-
-        try {
-            byte[] result = new byte[hex.length() / 2];
-            for (int i = 0; i < result.length; i++) {
-                result[i] = (byte) Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
-            }
-            return result;
-        } catch (NumberFormatException e) {
-            return null;
         }
     }
 
