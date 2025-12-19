@@ -11,6 +11,7 @@
 .mtj.tmp/
 
 # Package Files #
+*.jar
 *.war
 *.nar
 *.ear
@@ -28,10 +29,3 @@ hs_err_pid*
 # Gradle
 .gradle/
 build/
-
-# Keep library JARs but ignore output JARs
-!bined-*.jar
-!binary_data*.jar
-!burpsuite_pro.jar
-!deltahex-*.jar
-!exbin-*.jar

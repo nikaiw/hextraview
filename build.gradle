@@ -5,28 +5,25 @@ plugins {
 group = 'burp'
 version = '1.1.0'
 
-sourceCompatibility = JavaVersion.VERSION_11
-targetCompatibility = JavaVersion.VERSION_11
+sourceCompatibility = '11'
+targetCompatibility = '11'
 
 repositories {
     mavenCentral()
-    flatDir {
-        dirs '.'
-    }
 }
 
 dependencies {
-    // Local JAR dependencies - bined library (successor to deltahex)
-    implementation files('bined-swing-0.2.2.jar')
-    implementation files('bined-core-0.2.2.jar')
-    implementation files('bined-highlight-swing-0.2.2.jar')
-    implementation files('bined-operation-0.2.2.jar')
-    implementation files('bined-operation-swing-0.2.2.jar')
-    implementation files('binary_data-0.2.2.jar')
-    implementation files('binary_data-array-0.2.2.jar')
+    // Bined library from Maven Central (hex editor component)
+    implementation 'org.exbin.bined:bined-swing:0.2.2'
+    implementation 'org.exbin.bined:bined-core:0.2.2'
+    implementation 'org.exbin.bined:bined-highlight-swing:0.2.2'
+    implementation 'org.exbin.bined:bined-operation:0.2.2'
+    implementation 'org.exbin.bined:bined-operation-swing:0.2.2'
+    implementation 'org.exbin.auxiliary:binary_data:0.2.2'
+    implementation 'org.exbin.auxiliary:binary_data-array:0.2.2'
 
     // Burp Suite API (compile only - provided at runtime by Burp)
-    compileOnly files('burpsuite_pro.jar')
+    compileOnly 'net.portswigger.burp.extender:burp-extender-api:2.3'
 }
 
 sourceSets {
@@ -102,12 +99,12 @@ jar {
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
-    baseName = 'hextraview'
+    archiveBaseName = 'hextraview'
 }
 
 // Task to build a distribution-ready JAR
-task buildExtension(type: Jar) {
-    baseName = 'hextraview-extension'
+tasks.register('buildExtension', Jar) {
+    archiveBaseName = 'hextraview-extension'
     from sourceSets.main.output
 
     from {
