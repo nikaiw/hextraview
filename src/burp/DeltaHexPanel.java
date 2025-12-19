@@ -18,7 +18,11 @@ package burp;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -28,9 +32,21 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JColorChooser;
 import javax.swing.JFileChooser;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.border.BevelBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import java.nio.charset.StandardCharsets;
+import org.exbin.utils.binary_data.ByteArrayEditableData;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.EtchedBorder;
@@ -68,13 +84,64 @@ public class DeltaHexPanel extends javax.swing.JPanel {
     private final Map<JPanel, JPanel> tabMap = new HashMap<>();
     private JPanel activeTab;
 
+    // Settings manager for persistence
+    private SettingsManager settingsManager;
+
+    // Custom painter reference
+    private HextraCodeAreaPainter hextraPainter;
+
+    // Color picker buttons - text colors
+    private JButton printableColorButton;
+    private JButton nullByteColorButton;
+    private JButton unprintableColorButton;
+
+    // Character background color buttons and checkboxes
+    private JButton printableBgButton;
+    private JButton nullByteBgButton;
+    private JButton unprintableBgButton;
+    private JButton spaceBgButton;
+    private javax.swing.JCheckBox printableBgCheckBox;
+    private javax.swing.JCheckBox nullByteBgCheckBox;
+    private javax.swing.JCheckBox unprintableBgCheckBox;
+    private javax.swing.JCheckBox spaceBgCheckBox;
+
+    // Region background color buttons
+    private JButton requestLineBgButton;
+    private JButton headersBgButton;
+    private JButton bodyBgButton;
+    private JButton defaultBgButton;
+
+    // Colors tab
+    private JPanel colorsTab;
+    private JPanel colorsPanel;
+
+    // Raw tab for bidirectional sync
+    private JPanel rawTab;
+    private JTextArea rawTextArea;
+    private boolean syncInProgress = false;
+
+    // Collapsible settings panel
+    private boolean settingsCollapsed = false;
+    private int lastDividerLocation = 200;
+    private JButton toggleSettingsButton;
+
+    // Advanced tabs visibility
+    private boolean showAdvancedTabs = false;
+    private javax.swing.JCheckBox showAdvancedCheckBox;
+
+    // Theme selector
+    private javax.swing.JComboBox<String> themeComboBox;
+
     public DeltaHexPanel() {
         initComponents();
     }
 
     public void setCodeArea(final CodeArea codeArea) {
         this.codeArea = codeArea;
+
+        // Set codeArea as right component
         splitPane.setRightComponent(codeArea);
+
         viewModeComboBox.setSelectedIndex(codeArea.getViewMode().ordinal());
         codeTypeComboBox.setSelectedIndex(codeArea.getCodeType().ordinal());
         positionCodeTypeComboBox.setSelectedIndex(codeArea.getPositionCodeType().ordinal());
@@ -159,8 +226,847 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         tabMap.put(scrollingTab, scrollingPanel);
         tabMap.put(cursorTab, cursorPanel);
 
-        activeTab = modeTab;
-        modeTab.add(modePanel, BorderLayout.CENTER);
+        // Create and add Colors tab
+        setupColorsTab();
+
+        // Create and add Raw tab for bidirectional sync
+        setupRawTab();
+
+        // Collapsible settings disabled - modifying splitPane structure causes Burp issues
+        // setupCollapsibleSettings();
+
+        // Hide advanced tabs by default (show only Colors and Raw)
+        hideAdvancedTabs();
+
+        activeTab = colorsTab;
+        colorsTab.add(colorsPanel, BorderLayout.CENTER);
+    }
+
+    // Toggle advanced tabs visibility
+    private void toggleAdvancedTabs() {
+        showAdvancedTabs = showAdvancedCheckBox.isSelected();
+        if (showAdvancedTabs) {
+            showAdvancedTabsUI();
+        } else {
+            hideAdvancedTabs();
+        }
+    }
+
+    // Hide advanced tabs (Mode, State, Layout, Decoration, Scrolling, Cursor)
+    private void hideAdvancedTabs() {
+        // Remove advanced tabs from tabbedPane (keep Colors and Raw)
+        for (int i = tabbedPane.getTabCount() - 1; i >= 0; i--) {
+            String title = tabbedPane.getTitleAt(i);
+            if (title.equals("Mode") || title.equals("State") || title.equals("Layout") ||
+                title.equals("Decoration") || title.equals("Scrolling") || title.equals("Cursor")) {
+                tabbedPane.removeTabAt(i);
+            }
+        }
+    }
+
+    // Show advanced tabs
+    private void showAdvancedTabsUI() {
+        // Add advanced tabs back in order (after Colors, before Raw)
+        int colorsIndex = tabbedPane.indexOfTab("Colors");
+        int insertIndex = colorsIndex + 1;
+
+        // Add tabs in correct order
+        tabbedPane.insertTab("Mode", null, modeTab, null, insertIndex++);
+        tabbedPane.insertTab("State", null, stateTab, null, insertIndex++);
+        tabbedPane.insertTab("Layout", null, layoutTab, null, insertIndex++);
+        tabbedPane.insertTab("Decoration", null, decorationTab, null, insertIndex++);
+        tabbedPane.insertTab("Scrolling", null, scrollingTab, null, insertIndex++);
+        tabbedPane.insertTab("Cursor", null, cursorTab, null, insertIndex);
+    }
+
+    // Raw tab setup for bidirectional hex-raw sync
+    private void setupRawTab() {
+        rawTab = new JPanel(new BorderLayout());
+
+        // Create content panel (following same pattern as other tabs)
+        JPanel rawPanel = new JPanel(new BorderLayout());
+
+        // Create raw text area
+        rawTextArea = new JTextArea();
+        rawTextArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        rawTextArea.setLineWrap(true);
+        rawTextArea.setWrapStyleWord(false);
+
+        JScrollPane rawScrollPane = new JScrollPane(rawTextArea);
+        rawPanel.add(rawScrollPane, BorderLayout.CENTER);
+
+        // Add info label
+        JLabel infoLabel = new JLabel("Edit raw data here - changes sync to hex view");
+        infoLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        rawPanel.add(infoLabel, BorderLayout.NORTH);
+
+        tabbedPane.addTab("Raw", rawTab);
+        tabMap.put(rawTab, rawPanel);
+
+        // Setup bidirectional sync
+        setupBidirectionalSync();
+    }
+
+    // Bidirectional sync between hex and raw views
+    private void setupBidirectionalSync() {
+        // Raw to Hex sync
+        rawTextArea.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) { syncRawToHex(); }
+            @Override
+            public void removeUpdate(DocumentEvent e) { syncRawToHex(); }
+            @Override
+            public void changedUpdate(DocumentEvent e) { syncRawToHex(); }
+        });
+
+        // Hex to Raw sync - add listener to codeArea
+        codeArea.addDataChangedListener(() -> syncHexToRaw());
+    }
+
+    private void syncHexToRaw() {
+        if (syncInProgress || rawTextArea == null || codeArea == null || codeArea.getData() == null) return;
+        syncInProgress = true;
+        try {
+            long dataSize = codeArea.getDataSize();
+            if (dataSize > 0 && dataSize < Integer.MAX_VALUE) {
+                byte[] data = new byte[(int) dataSize];
+                for (int i = 0; i < dataSize; i++) {
+                    data[i] = codeArea.getData().getByte(i);
+                }
+                // Use ISO-8859-1 for lossless byte-to-char mapping
+                rawTextArea.setText(new String(data, StandardCharsets.ISO_8859_1));
+            } else {
+                rawTextArea.setText("");
+            }
+        } finally {
+            syncInProgress = false;
+        }
+    }
+
+    private void syncRawToHex() {
+        if (syncInProgress || rawTextArea == null || codeArea == null || codeArea.getData() == null) return;
+        syncInProgress = true;
+        try {
+            String text = rawTextArea.getText();
+            // Use ISO-8859-1 for lossless char-to-byte mapping
+            byte[] bytes = text.getBytes(StandardCharsets.ISO_8859_1);
+            ByteArrayEditableData editableData = (ByteArrayEditableData) codeArea.getData();
+            editableData.setData(bytes);
+            codeArea.repaint();
+            dataSizeTextField.setText(String.valueOf(codeArea.getDataSize()));
+        } catch (Exception e) {
+            // Ignore sync errors
+        } finally {
+            syncInProgress = false;
+        }
+    }
+
+    // Method to sync raw view when message is set externally
+    public void updateRawView() {
+        syncHexToRaw();
+    }
+
+    // Collapsible settings panel setup
+    private void setupCollapsibleSettings() {
+        // Create toggle button
+        toggleSettingsButton = new JButton("◀");
+        toggleSettingsButton.setToolTipText("Collapse settings panel");
+        toggleSettingsButton.setMargin(new java.awt.Insets(2, 4, 2, 4));
+        toggleSettingsButton.setFocusable(false);
+        toggleSettingsButton.addActionListener(e -> toggleSettingsPanel());
+
+        // Create a wrapper panel with button at top
+        JPanel settingsWrapper = new JPanel(new BorderLayout());
+
+        // Top bar with toggle button
+        JPanel topBar = new JPanel(new BorderLayout());
+        topBar.add(toggleSettingsButton, BorderLayout.WEST);
+        JLabel settingsLabel = new JLabel(" Settings");
+        settingsLabel.setFont(settingsLabel.getFont().deriveFont(Font.BOLD));
+        topBar.add(settingsLabel, BorderLayout.CENTER);
+        topBar.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
+
+        settingsWrapper.add(topBar, BorderLayout.NORTH);
+        settingsWrapper.add(tabbedPane, BorderLayout.CENTER);
+
+        splitPane.setLeftComponent(settingsWrapper);
+
+        // Load saved collapsed state
+        if (settingsManager != null) {
+            settingsCollapsed = settingsManager.loadBoolean(SettingsManager.KEY_SETTINGS_COLLAPSED, false);
+            lastDividerLocation = settingsManager.loadInt(SettingsManager.KEY_SETTINGS_DIVIDER_LOCATION, 200);
+            if (settingsCollapsed) {
+                // Apply collapsed state after a short delay to allow UI to initialize
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    splitPane.setDividerLocation(0);
+                    toggleSettingsButton.setText("▶");
+                    toggleSettingsButton.setToolTipText("Expand settings panel");
+                });
+            } else {
+                splitPane.setDividerLocation(lastDividerLocation);
+            }
+        }
+    }
+
+    private void toggleSettingsPanel() {
+        if (settingsCollapsed) {
+            // Expand
+            splitPane.setDividerLocation(lastDividerLocation > 50 ? lastDividerLocation : 200);
+            toggleSettingsButton.setText("◀");
+            toggleSettingsButton.setToolTipText("Collapse settings panel");
+            settingsCollapsed = false;
+        } else {
+            // Collapse - store current location first
+            lastDividerLocation = splitPane.getDividerLocation();
+            splitPane.setDividerLocation(0);
+            toggleSettingsButton.setText("▶");
+            toggleSettingsButton.setToolTipText("Expand settings panel");
+            settingsCollapsed = true;
+        }
+
+        // Persist state
+        if (settingsManager != null) {
+            settingsManager.saveBoolean(SettingsManager.KEY_SETTINGS_COLLAPSED, settingsCollapsed);
+            settingsManager.saveInt(SettingsManager.KEY_SETTINGS_DIVIDER_LOCATION, lastDividerLocation);
+        }
+    }
+
+    // Colors tab setup
+    private void setupColorsTab() {
+        colorsTab = new JPanel(new BorderLayout());
+        colorsPanel = new JPanel();
+        colorsPanel.setLayout(new BoxLayout(colorsPanel, BoxLayout.Y_AXIS));
+        colorsPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // Theme selector panel
+        JPanel themePanel = new JPanel(new GridBagLayout());
+        themePanel.setBorder(BorderFactory.createTitledBorder("Theme"));
+        themePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        GridBagConstraints tgbc = new GridBagConstraints();
+        tgbc.insets = new Insets(3, 5, 3, 5);
+        tgbc.anchor = GridBagConstraints.WEST;
+
+        tgbc.gridx = 0; tgbc.gridy = 0;
+        themePanel.add(new JLabel("Select Theme:"), tgbc);
+
+        tgbc.gridx = 1;
+        themeComboBox = new javax.swing.JComboBox<>(new String[]{"Light", "Dark", "High Contrast", "Custom"});
+        themeComboBox.addActionListener(e -> applySelectedTheme());
+        themePanel.add(themeComboBox, tgbc);
+
+        // Show Advanced checkbox
+        tgbc.gridx = 0; tgbc.gridy = 1; tgbc.gridwidth = 2;
+        showAdvancedCheckBox = new javax.swing.JCheckBox("Show Advanced Settings");
+        showAdvancedCheckBox.setSelected(showAdvancedTabs);
+        showAdvancedCheckBox.addActionListener(e -> toggleAdvancedTabs());
+        themePanel.add(showAdvancedCheckBox, tgbc);
+
+        colorsPanel.add(themePanel);
+        colorsPanel.add(Box.createVerticalStrut(10));
+
+        // Character Colors Section - using GridBagLayout for proper alignment
+        JPanel charColorsPanel = new JPanel(new GridBagLayout());
+        charColorsPanel.setBorder(BorderFactory.createTitledBorder("Character Colors (Text + Background)"));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(3, 5, 3, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        // Header row
+        gbc.gridy = 0;
+        gbc.gridx = 0; charColorsPanel.add(new JLabel("Type"), gbc);
+        gbc.gridx = 1; charColorsPanel.add(new JLabel("Text"), gbc);
+        gbc.gridx = 2; charColorsPanel.add(new JLabel(""), gbc); // Spacer
+        gbc.gridx = 3; charColorsPanel.add(new JLabel("Background"), gbc);
+
+        // Printable characters
+        printableColorButton = createColorButton("Printable", Color.BLACK);
+        printableBgButton = createColorButton("Bg", Color.WHITE);
+        printableBgCheckBox = new javax.swing.JCheckBox("Custom");
+        printableBgButton.setEnabled(false);
+        gbc.gridy = 1;
+        gbc.gridx = 0; charColorsPanel.add(new JLabel("Printable:"), gbc);
+        gbc.gridx = 1; charColorsPanel.add(printableColorButton, gbc);
+        gbc.gridx = 2; charColorsPanel.add(printableBgCheckBox, gbc);
+        gbc.gridx = 3; charColorsPanel.add(printableBgButton, gbc);
+
+        // Null byte characters
+        nullByteColorButton = createColorButton("Null Byte", Color.RED);
+        nullByteBgButton = createColorButton("Bg", Color.WHITE);
+        nullByteBgCheckBox = new javax.swing.JCheckBox("Custom");
+        nullByteBgButton.setEnabled(false);
+        gbc.gridy = 2;
+        gbc.gridx = 0; charColorsPanel.add(new JLabel("Null Byte:"), gbc);
+        gbc.gridx = 1; charColorsPanel.add(nullByteColorButton, gbc);
+        gbc.gridx = 2; charColorsPanel.add(nullByteBgCheckBox, gbc);
+        gbc.gridx = 3; charColorsPanel.add(nullByteBgButton, gbc);
+
+        // Unprintable characters
+        unprintableColorButton = createColorButton("Unprintable", Color.BLUE);
+        unprintableBgButton = createColorButton("Bg", Color.WHITE);
+        unprintableBgCheckBox = new javax.swing.JCheckBox("Custom");
+        unprintableBgButton.setEnabled(false);
+        gbc.gridy = 3;
+        gbc.gridx = 0; charColorsPanel.add(new JLabel("Unprintable:"), gbc);
+        gbc.gridx = 1; charColorsPanel.add(unprintableColorButton, gbc);
+        gbc.gridx = 2; charColorsPanel.add(unprintableBgCheckBox, gbc);
+        gbc.gridx = 3; charColorsPanel.add(unprintableBgButton, gbc);
+
+        // Space characters (no text color, just background)
+        spaceBgButton = createColorButton("Bg", Color.WHITE);
+        spaceBgCheckBox = new javax.swing.JCheckBox("Custom");
+        spaceBgButton.setEnabled(false);
+        gbc.gridy = 4;
+        gbc.gridx = 0; charColorsPanel.add(new JLabel("Space:"), gbc);
+        gbc.gridx = 1; charColorsPanel.add(new JLabel(""), gbc); // No text color for space
+        gbc.gridx = 2; charColorsPanel.add(spaceBgCheckBox, gbc);
+        gbc.gridx = 3; charColorsPanel.add(spaceBgButton, gbc);
+
+        // HTTP Region Colors Section - using GridBagLayout
+        JPanel regionColorsPanel = new JPanel(new GridBagLayout());
+        regionColorsPanel.setBorder(BorderFactory.createTitledBorder("HTTP Region Background Colors"));
+        GridBagConstraints rgbc = new GridBagConstraints();
+        rgbc.insets = new Insets(3, 5, 3, 5);
+        rgbc.anchor = GridBagConstraints.WEST;
+
+        requestLineBgButton = createColorButton("Request Line", new Color(255, 245, 238));
+        headersBgButton = createColorButton("Headers", new Color(240, 255, 240));
+        bodyBgButton = createColorButton("Body", new Color(240, 248, 255));
+        defaultBgButton = createColorButton("Default", new Color(255, 255, 255));
+
+        rgbc.gridy = 0;
+        rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Request Line:"), rgbc);
+        rgbc.gridx = 1; regionColorsPanel.add(requestLineBgButton, rgbc);
+
+        rgbc.gridy = 1;
+        rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Headers:"), rgbc);
+        rgbc.gridx = 1; regionColorsPanel.add(headersBgButton, rgbc);
+
+        rgbc.gridy = 2;
+        rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Body:"), rgbc);
+        rgbc.gridx = 1; regionColorsPanel.add(bodyBgButton, rgbc);
+
+        rgbc.gridy = 3;
+        rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Default:"), rgbc);
+        rgbc.gridx = 1; regionColorsPanel.add(defaultBgButton, rgbc);
+
+        // Reset to Defaults button
+        JPanel resetPanel = new JPanel();
+        resetPanel.setLayout(new BoxLayout(resetPanel, BoxLayout.X_AXIS));
+        resetPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        JButton resetButton = new JButton("Reset to Defaults");
+        resetButton.addActionListener(e -> resetAllSettings());
+        resetPanel.add(resetButton);
+        resetPanel.add(Box.createHorizontalGlue());
+
+        colorsPanel.add(charColorsPanel);
+        colorsPanel.add(Box.createVerticalStrut(10));
+        colorsPanel.add(regionColorsPanel);
+        colorsPanel.add(Box.createVerticalStrut(10));
+        colorsPanel.add(resetPanel);
+
+        // Follow the same pattern as other tabs - don't add content directly
+        // The tabbedPaneStateChanged handler will manage adding/removing content
+        tabbedPane.addTab("Colors", colorsTab);
+        tabMap.put(colorsTab, colorsPanel);
+
+        // Now that buttons exist, set up listeners and load colors
+        setupColorButtonListeners();
+        loadColorSettings();
+    }
+
+    private JButton createColorButton(String name, Color defaultColor) {
+        JButton button = new JButton();
+        button.setBackground(defaultColor);
+        button.setOpaque(true);
+        button.setPreferredSize(new Dimension(60, 25));
+        button.setMaximumSize(new Dimension(60, 25));
+        return button;
+    }
+
+
+    // Settings manager
+    public void setSettingsManager(SettingsManager manager) {
+        this.settingsManager = manager;
+        loadSettings();
+        // Load color settings if painter is already set
+        if (hextraPainter != null) {
+            loadColorSettings();
+        }
+        setupColorButtonListeners();
+    }
+
+    public void setPainter(HextraCodeAreaPainter painter) {
+        this.hextraPainter = painter;
+        // Load color settings if settingsManager is already set
+        if (settingsManager != null) {
+            loadColorSettings();
+        }
+    }
+
+    private void setupColorButtonListeners() {
+        if (hextraPainter == null) return;
+        // Color buttons may not exist if Colors tab wasn't set up
+        if (printableColorButton == null) return;
+
+        printableColorButton.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "Printable Character Color", hextraPainter.getPrintableColor());
+            if (newColor != null) {
+                hextraPainter.setPrintableColor(newColor);
+                printableColorButton.setBackground(newColor);
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveColor(SettingsManager.KEY_PRINTABLE_COLOR, newColor);
+                }
+            }
+        });
+
+        nullByteColorButton.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "Null Byte Color", hextraPainter.getNullByteColor());
+            if (newColor != null) {
+                hextraPainter.setNullByteColor(newColor);
+                nullByteColorButton.setBackground(newColor);
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveColor(SettingsManager.KEY_NULL_BYTE_COLOR, newColor);
+                }
+            }
+        });
+
+        unprintableColorButton.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "Unprintable Character Color", hextraPainter.getUnprintableColor());
+            if (newColor != null) {
+                hextraPainter.setUnprintableColor(newColor);
+                unprintableColorButton.setBackground(newColor);
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveColor(SettingsManager.KEY_UNPRINTABLE_COLOR, newColor);
+                }
+            }
+        });
+
+        requestLineBgButton.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "Request Line Background", hextraPainter.getRequestLineBgColor());
+            if (newColor != null) {
+                hextraPainter.setRequestLineBgColor(newColor);
+                requestLineBgButton.setBackground(newColor);
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveColor(SettingsManager.KEY_REQUEST_LINE_BG, newColor);
+                }
+            }
+        });
+
+        headersBgButton.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "Headers Background", hextraPainter.getHeadersBgColor());
+            if (newColor != null) {
+                hextraPainter.setHeadersBgColor(newColor);
+                headersBgButton.setBackground(newColor);
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveColor(SettingsManager.KEY_HEADERS_BG, newColor);
+                }
+            }
+        });
+
+        bodyBgButton.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "Body Background", hextraPainter.getBodyBgColor());
+            if (newColor != null) {
+                hextraPainter.setBodyBgColor(newColor);
+                bodyBgButton.setBackground(newColor);
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveColor(SettingsManager.KEY_BODY_BG, newColor);
+                }
+            }
+        });
+
+        defaultBgButton.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "Default Background", hextraPainter.getDefaultBgColor());
+            if (newColor != null) {
+                hextraPainter.setDefaultBgColor(newColor);
+                defaultBgButton.setBackground(newColor);
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveColor(SettingsManager.KEY_DEFAULT_BG, newColor);
+                }
+            }
+        });
+
+        // Character background checkboxes and buttons
+        setupCharBgListeners(printableBgCheckBox, printableBgButton,
+            () -> hextraPainter.getPrintableBgColor(),
+            c -> hextraPainter.setPrintableBgColor(c),
+            SettingsManager.KEY_PRINTABLE_BG, "Printable Background");
+
+        setupCharBgListeners(nullByteBgCheckBox, nullByteBgButton,
+            () -> hextraPainter.getNullByteBgColor(),
+            c -> hextraPainter.setNullByteBgColor(c),
+            SettingsManager.KEY_NULL_BYTE_BG, "Null Byte Background");
+
+        setupCharBgListeners(unprintableBgCheckBox, unprintableBgButton,
+            () -> hextraPainter.getUnprintableBgColor(),
+            c -> hextraPainter.setUnprintableBgColor(c),
+            SettingsManager.KEY_UNPRINTABLE_BG, "Unprintable Background");
+
+        setupCharBgListeners(spaceBgCheckBox, spaceBgButton,
+            () -> hextraPainter.getSpaceBgColor(),
+            c -> hextraPainter.setSpaceBgColor(c),
+            SettingsManager.KEY_SPACE_BG, "Space Background");
+    }
+
+    private void setupCharBgListeners(javax.swing.JCheckBox checkBox, JButton button,
+                                       java.util.function.Supplier<Color> getter,
+                                       java.util.function.Consumer<Color> setter,
+                                       String settingsKey, String dialogTitle) {
+        // Checkbox enables/disables custom background
+        checkBox.addActionListener(e -> {
+            boolean useCustom = checkBox.isSelected();
+            button.setEnabled(useCustom);
+            if (!useCustom) {
+                // Reset to region background (null)
+                setter.accept(null);
+                button.setBackground(Color.WHITE);
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveSetting(settingsKey, "");
+                }
+            }
+        });
+
+        // Button opens color picker
+        button.addActionListener(e -> {
+            Color currentColor = getter.get();
+            if (currentColor == null) currentColor = Color.WHITE;
+            Color newColor = JColorChooser.showDialog(this, dialogTitle, currentColor);
+            if (newColor != null) {
+                setter.accept(newColor);
+                button.setBackground(newColor);
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveColor(settingsKey, newColor);
+                }
+            }
+        });
+    }
+
+    private void loadSettings() {
+        if (settingsManager == null) return;
+
+        // Load settings if codeArea is available
+        if (codeArea != null) {
+            int viewMode = settingsManager.loadInt(SettingsManager.KEY_VIEW_MODE, codeArea.getViewMode().ordinal());
+            if (viewMode >= 0 && viewMode < ViewMode.values().length) {
+                codeArea.setViewMode(ViewMode.values()[viewMode]);
+                viewModeComboBox.setSelectedIndex(viewMode);
+            }
+
+            int codeType = settingsManager.loadInt(SettingsManager.KEY_CODE_TYPE, codeArea.getCodeType().ordinal());
+            if (codeType >= 0 && codeType < CodeType.values().length) {
+                codeArea.setCodeType(CodeType.values()[codeType]);
+                codeTypeComboBox.setSelectedIndex(codeType);
+            }
+
+            boolean showLineNumbers = settingsManager.loadBoolean(SettingsManager.KEY_SHOW_LINE_NUMBERS, codeArea.isShowLineNumbers());
+            codeArea.setShowLineNumbers(showLineNumbers);
+            showLineNumbersCheckBox.setSelected(showLineNumbers);
+
+            boolean showHeader = settingsManager.loadBoolean(SettingsManager.KEY_SHOW_HEADER, codeArea.isShowHeader());
+            codeArea.setShowHeader(showHeader);
+            showHeaderCheckBox.setSelected(showHeader);
+
+            boolean showNonprintable = settingsManager.loadBoolean(SettingsManager.KEY_SHOW_NONPRINTABLE, codeArea.isShowUnprintableCharacters());
+            codeArea.setShowUnprintableCharacters(showNonprintable);
+            showNonprintableCharactersCheckBox.setSelected(showNonprintable);
+        }
+    }
+
+    private void loadColorSettings() {
+        if (settingsManager == null || hextraPainter == null) return;
+
+        // Load character colors
+        Color printableColor = settingsManager.loadColor(SettingsManager.KEY_PRINTABLE_COLOR, Color.BLACK);
+        hextraPainter.setPrintableColor(printableColor);
+        if (printableColorButton != null) printableColorButton.setBackground(printableColor);
+
+        Color nullByteColor = settingsManager.loadColor(SettingsManager.KEY_NULL_BYTE_COLOR, Color.RED);
+        hextraPainter.setNullByteColor(nullByteColor);
+        if (nullByteColorButton != null) nullByteColorButton.setBackground(nullByteColor);
+
+        Color unprintableColor = settingsManager.loadColor(SettingsManager.KEY_UNPRINTABLE_COLOR, Color.BLUE);
+        hextraPainter.setUnprintableColor(unprintableColor);
+        if (unprintableColorButton != null) unprintableColorButton.setBackground(unprintableColor);
+
+        // Load region colors
+        Color requestLineBg = settingsManager.loadColor(SettingsManager.KEY_REQUEST_LINE_BG, new Color(255, 245, 238));
+        hextraPainter.setRequestLineBgColor(requestLineBg);
+        if (requestLineBgButton != null) requestLineBgButton.setBackground(requestLineBg);
+
+        Color headersBg = settingsManager.loadColor(SettingsManager.KEY_HEADERS_BG, new Color(240, 255, 240));
+        hextraPainter.setHeadersBgColor(headersBg);
+        if (headersBgButton != null) headersBgButton.setBackground(headersBg);
+
+        Color bodyBg = settingsManager.loadColor(SettingsManager.KEY_BODY_BG, new Color(240, 248, 255));
+        hextraPainter.setBodyBgColor(bodyBg);
+        if (bodyBgButton != null) bodyBgButton.setBackground(bodyBg);
+
+        Color defaultBg = settingsManager.loadColor(SettingsManager.KEY_DEFAULT_BG, new Color(255, 255, 255));
+        hextraPainter.setDefaultBgColor(defaultBg);
+        if (defaultBgButton != null) defaultBgButton.setBackground(defaultBg);
+
+        // Load character background colors (null means use region background)
+        loadCharBgSetting(SettingsManager.KEY_PRINTABLE_BG, printableBgCheckBox, printableBgButton,
+            c -> hextraPainter.setPrintableBgColor(c));
+        loadCharBgSetting(SettingsManager.KEY_NULL_BYTE_BG, nullByteBgCheckBox, nullByteBgButton,
+            c -> hextraPainter.setNullByteBgColor(c));
+        loadCharBgSetting(SettingsManager.KEY_UNPRINTABLE_BG, unprintableBgCheckBox, unprintableBgButton,
+            c -> hextraPainter.setUnprintableBgColor(c));
+        loadCharBgSetting(SettingsManager.KEY_SPACE_BG, spaceBgCheckBox, spaceBgButton,
+            c -> hextraPainter.setSpaceBgColor(c));
+
+        // Load saved theme name and set combo box (if colors were customized, use "Custom")
+        String savedTheme = settingsManager.loadSetting(SettingsManager.KEY_CURRENT_THEME, "Light");
+        if (themeComboBox != null) {
+            // Set the combo box without triggering the action listener
+            themeComboBox.removeActionListener(themeComboBox.getActionListeners().length > 0 ?
+                themeComboBox.getActionListeners()[0] : null);
+            for (int i = 0; i < themeComboBox.getItemCount(); i++) {
+                if (themeComboBox.getItemAt(i).equals(savedTheme)) {
+                    themeComboBox.setSelectedIndex(i);
+                    break;
+                }
+            }
+            themeComboBox.addActionListener(e -> applySelectedTheme());
+        }
+    }
+
+    private void loadCharBgSetting(String key, javax.swing.JCheckBox checkBox, JButton button,
+                                    java.util.function.Consumer<Color> setter) {
+        String value = settingsManager.loadSetting(key, "");
+        if (value != null && !value.isEmpty()) {
+            try {
+                Color color = new Color(Integer.parseInt(value));
+                setter.accept(color);
+                if (checkBox != null) {
+                    checkBox.setSelected(true);
+                }
+                if (button != null) {
+                    button.setEnabled(true);
+                    button.setBackground(color);
+                }
+            } catch (NumberFormatException e) {
+                // Invalid color, use default (null = region bg)
+                setter.accept(null);
+            }
+        } else {
+            // No custom color, use region background
+            setter.accept(null);
+            if (checkBox != null) {
+                checkBox.setSelected(false);
+            }
+            if (button != null) {
+                button.setEnabled(false);
+                button.setBackground(Color.WHITE);
+            }
+        }
+    }
+
+    private void resetAllSettings() {
+        if (hextraPainter == null) return;
+
+        // Reset character text colors to defaults
+        hextraPainter.setPrintableColor(Color.BLACK);
+        hextraPainter.setNullByteColor(Color.RED);
+        hextraPainter.setUnprintableColor(Color.BLUE);
+
+        // Reset region background colors to defaults
+        hextraPainter.setRequestLineBgColor(new Color(255, 245, 238));  // Seashell
+        hextraPainter.setHeadersBgColor(new Color(240, 255, 240));      // Honeydew
+        hextraPainter.setBodyBgColor(new Color(240, 248, 255));         // AliceBlue
+        hextraPainter.setDefaultBgColor(Color.WHITE);
+
+        // Reset character background colors (null = use region background)
+        hextraPainter.setPrintableBgColor(null);
+        hextraPainter.setNullByteBgColor(null);
+        hextraPainter.setUnprintableBgColor(null);
+        hextraPainter.setSpaceBgColor(null);
+
+        // Update UI buttons
+        if (printableColorButton != null) printableColorButton.setBackground(Color.BLACK);
+        if (nullByteColorButton != null) nullByteColorButton.setBackground(Color.RED);
+        if (unprintableColorButton != null) unprintableColorButton.setBackground(Color.BLUE);
+
+        if (requestLineBgButton != null) requestLineBgButton.setBackground(new Color(255, 245, 238));
+        if (headersBgButton != null) headersBgButton.setBackground(new Color(240, 255, 240));
+        if (bodyBgButton != null) bodyBgButton.setBackground(new Color(240, 248, 255));
+        if (defaultBgButton != null) defaultBgButton.setBackground(Color.WHITE);
+
+        // Reset character background checkboxes and buttons
+        if (printableBgCheckBox != null) {
+            printableBgCheckBox.setSelected(false);
+            printableBgButton.setEnabled(false);
+            printableBgButton.setBackground(Color.WHITE);
+        }
+        if (nullByteBgCheckBox != null) {
+            nullByteBgCheckBox.setSelected(false);
+            nullByteBgButton.setEnabled(false);
+            nullByteBgButton.setBackground(Color.WHITE);
+        }
+        if (unprintableBgCheckBox != null) {
+            unprintableBgCheckBox.setSelected(false);
+            unprintableBgButton.setEnabled(false);
+            unprintableBgButton.setBackground(Color.WHITE);
+        }
+        if (spaceBgCheckBox != null) {
+            spaceBgCheckBox.setSelected(false);
+            spaceBgButton.setEnabled(false);
+            spaceBgButton.setBackground(Color.WHITE);
+        }
+
+        // Clear persisted settings
+        if (settingsManager != null) {
+            settingsManager.saveSetting(SettingsManager.KEY_PRINTABLE_COLOR, null);
+            settingsManager.saveSetting(SettingsManager.KEY_NULL_BYTE_COLOR, null);
+            settingsManager.saveSetting(SettingsManager.KEY_UNPRINTABLE_COLOR, null);
+            settingsManager.saveSetting(SettingsManager.KEY_REQUEST_LINE_BG, null);
+            settingsManager.saveSetting(SettingsManager.KEY_HEADERS_BG, null);
+            settingsManager.saveSetting(SettingsManager.KEY_BODY_BG, null);
+            settingsManager.saveSetting(SettingsManager.KEY_DEFAULT_BG, null);
+            settingsManager.saveSetting(SettingsManager.KEY_PRINTABLE_BG, null);
+            settingsManager.saveSetting(SettingsManager.KEY_NULL_BYTE_BG, null);
+            settingsManager.saveSetting(SettingsManager.KEY_UNPRINTABLE_BG, null);
+            settingsManager.saveSetting(SettingsManager.KEY_SPACE_BG, null);
+        }
+
+        // Repaint
+        if (codeArea != null) {
+            codeArea.repaint();
+        }
+
+        // Reset theme combo to Light
+        if (themeComboBox != null) {
+            themeComboBox.setSelectedIndex(0);
+        }
+    }
+
+    private void applySelectedTheme() {
+        if (hextraPainter == null) return;
+
+        String selectedTheme = (String) themeComboBox.getSelectedItem();
+        if (selectedTheme == null || selectedTheme.equals("Custom")) {
+            // Custom means keep current colors
+            return;
+        }
+
+        ColorTheme theme;
+        switch (selectedTheme) {
+            case "Dark":
+                theme = ColorTheme.createDarkTheme();
+                break;
+            case "High Contrast":
+                theme = ColorTheme.createHighContrastTheme();
+                break;
+            case "Light":
+            default:
+                theme = ColorTheme.createLightTheme();
+                break;
+        }
+
+        applyTheme(theme);
+
+        // Save current theme name
+        if (settingsManager != null) {
+            settingsManager.saveSetting(SettingsManager.KEY_CURRENT_THEME, selectedTheme);
+        }
+    }
+
+    private void applyTheme(ColorTheme theme) {
+        if (hextraPainter == null || theme == null) return;
+
+        // Apply text colors
+        hextraPainter.setPrintableColor(theme.getPrintableColor());
+        hextraPainter.setNullByteColor(theme.getNullByteColor());
+        hextraPainter.setUnprintableColor(theme.getUnprintableColor());
+
+        // Apply region background colors
+        hextraPainter.setRequestLineBgColor(theme.getRequestLineBg());
+        hextraPainter.setHeadersBgColor(theme.getHeadersBg());
+        hextraPainter.setBodyBgColor(theme.getBodyBg());
+        hextraPainter.setDefaultBgColor(theme.getDefaultBg());
+
+        // Apply character background colors
+        hextraPainter.setPrintableBgColor(theme.getPrintableBg());
+        hextraPainter.setNullByteBgColor(theme.getNullByteBg());
+        hextraPainter.setUnprintableBgColor(theme.getUnprintableBg());
+        hextraPainter.setSpaceBgColor(theme.getSpaceBg());
+
+        // Update UI buttons
+        updateColorButtons(theme);
+
+        // Persist colors
+        saveAllColors();
+
+        // Repaint
+        if (codeArea != null) {
+            codeArea.repaint();
+        }
+    }
+
+    private void updateColorButtons(ColorTheme theme) {
+        if (printableColorButton != null) printableColorButton.setBackground(theme.getPrintableColor());
+        if (nullByteColorButton != null) nullByteColorButton.setBackground(theme.getNullByteColor());
+        if (unprintableColorButton != null) unprintableColorButton.setBackground(theme.getUnprintableColor());
+
+        if (requestLineBgButton != null) requestLineBgButton.setBackground(theme.getRequestLineBg());
+        if (headersBgButton != null) headersBgButton.setBackground(theme.getHeadersBg());
+        if (bodyBgButton != null) bodyBgButton.setBackground(theme.getBodyBg());
+        if (defaultBgButton != null) defaultBgButton.setBackground(theme.getDefaultBg());
+
+        // Character background buttons/checkboxes
+        updateCharBgButton(theme.getPrintableBg(), printableBgCheckBox, printableBgButton);
+        updateCharBgButton(theme.getNullByteBg(), nullByteBgCheckBox, nullByteBgButton);
+        updateCharBgButton(theme.getUnprintableBg(), unprintableBgCheckBox, unprintableBgButton);
+        updateCharBgButton(theme.getSpaceBg(), spaceBgCheckBox, spaceBgButton);
+    }
+
+    private void updateCharBgButton(Color color, javax.swing.JCheckBox checkBox, JButton button) {
+        if (checkBox == null || button == null) return;
+        if (color != null) {
+            checkBox.setSelected(true);
+            button.setEnabled(true);
+            button.setBackground(color);
+        } else {
+            checkBox.setSelected(false);
+            button.setEnabled(false);
+            button.setBackground(Color.WHITE);
+        }
+    }
+
+    private void saveAllColors() {
+        if (settingsManager == null || hextraPainter == null) return;
+
+        settingsManager.saveColor(SettingsManager.KEY_PRINTABLE_COLOR, hextraPainter.getPrintableColor());
+        settingsManager.saveColor(SettingsManager.KEY_NULL_BYTE_COLOR, hextraPainter.getNullByteColor());
+        settingsManager.saveColor(SettingsManager.KEY_UNPRINTABLE_COLOR, hextraPainter.getUnprintableColor());
+
+        settingsManager.saveColor(SettingsManager.KEY_REQUEST_LINE_BG, hextraPainter.getRequestLineBgColor());
+        settingsManager.saveColor(SettingsManager.KEY_HEADERS_BG, hextraPainter.getHeadersBgColor());
+        settingsManager.saveColor(SettingsManager.KEY_BODY_BG, hextraPainter.getBodyBgColor());
+        settingsManager.saveColor(SettingsManager.KEY_DEFAULT_BG, hextraPainter.getDefaultBgColor());
+
+        // Character backgrounds - save as color RGB or clear if null
+        saveCharBgColor(SettingsManager.KEY_PRINTABLE_BG, hextraPainter.getPrintableBgColor());
+        saveCharBgColor(SettingsManager.KEY_NULL_BYTE_BG, hextraPainter.getNullByteBgColor());
+        saveCharBgColor(SettingsManager.KEY_UNPRINTABLE_BG, hextraPainter.getUnprintableBgColor());
+        saveCharBgColor(SettingsManager.KEY_SPACE_BG, hextraPainter.getSpaceBgColor());
+    }
+
+    private void saveCharBgColor(String key, Color color) {
+        if (settingsManager == null) return;
+        if (color != null) {
+            settingsManager.saveColor(key, color);
+        } else {
+            settingsManager.clearSetting(key);
+        }
     }
 
     /**
