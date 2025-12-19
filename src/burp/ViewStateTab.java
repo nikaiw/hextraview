@@ -1,7 +1,6 @@
 package burp;
 
 import org.exbin.bined.SelectionRange;
-import org.exbin.bined.swing.basic.CodeArea;
 import org.exbin.bined.swing.capability.ColorAssessorPainterCapable;
 import org.exbin.auxiliary.binary_data.array.ByteArrayEditableData;
 
@@ -14,7 +13,7 @@ public class ViewStateTab implements IMessageEditorTab {
     private final IExtensionHelpers helpers;
     private final HextraCodeAreaPainter codeAreaPainter;
     private final SettingsManager settingsManager;
-    private CodeArea hexEditor;
+    private HexviewCodeArea hexEditor;
     private DeltaHexPanel hexPanel;
     private ByteArrayEditableData data;
     private HttpRegionParser regionParser;
@@ -86,6 +85,10 @@ public class ViewStateTab implements IMessageEditorTab {
             this.data.insert(0, content);
         }
         this.hexEditor.setContentData(this.data);
+
+        // Clear undo history for new content
+        this.hexEditor.clearUndoHistory();
+
         this.hexEditor.repaint();
 
         // Sync raw view

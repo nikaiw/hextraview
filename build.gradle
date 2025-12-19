@@ -20,6 +20,8 @@ dependencies {
     implementation files('bined-swing-0.2.2.jar')
     implementation files('bined-core-0.2.2.jar')
     implementation files('bined-highlight-swing-0.2.2.jar')
+    implementation files('bined-operation-0.2.2.jar')
+    implementation files('bined-operation-swing-0.2.2.jar')
     implementation files('binary_data-0.2.2.jar')
     implementation files('binary_data-array-0.2.2.jar')
 
