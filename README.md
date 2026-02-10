@@ -41,14 +41,14 @@ Multiple built-in themes: Light, Dark, High Contrast, Monokai, Solarized (Dark/L
 
 1. Download the latest `hextraview-x.x.x.jar` from [Releases](../../releases)
 2. In Burp Suite: Extensions > Add > Select the JAR file
-3. The "Hextraview" tab will appear in message editors
+3. The "Hextraview" tab will appear in HTTP message editors and WebSocket message editors
 
 ## Development
 
 ### Prerequisites
-- Java 11 or higher
+- Java 17 or higher
 - Gradle 7+
-- Burp Suite JAR (for compilation)
+- Burp Suite (2023.x or later for WebSocket support)
 
 ### Building from Source
 
@@ -62,8 +62,10 @@ The built JAR will be in `build/libs/hextraview-x.x.x.jar`
 
 ```
 src/burp/
-├── BurpExtender.java          # Extension entry point
-├── ViewStateTab.java          # Burp tab integration
+├── BurpExtender.java          # Legacy API extension entry point
+├── HextraViewMontoya.java     # Montoya API entry point (WebSocket support)
+├── ViewStateTab.java          # HTTP message editor tab
+├── WebSocketHexTab.java       # WebSocket message editor tab
 ├── DeltaHexPanel.java         # Main hex editor panel
 ├── HexviewCodeArea.java       # Custom CodeArea with undo/redo
 ├── HextraCodeAreaPainter.java # Color styling
@@ -94,6 +96,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 - May 2021: 5 minutes spent to push the lib basis example into a view
 - November 2021: Nothing has changed let's put it in a corner of GitHub
 - December 2025: v1.1.0 - Major update with bined library, search/replace, context menu, themes (vibe coded)
+- February 2026: v1.2.0 - WebSocket message editor support via Montoya API, Java 17 baseline
 
 ## Todo / Requests
 

@@ -116,12 +116,24 @@ public class DeltaHexPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox unprintableBgCheckBox;
     private javax.swing.JCheckBox spaceBgCheckBox;
 
-    // Region background color buttons
+    // Region background color buttons (HTTP)
     private JButton requestLineBgButton;
     private JButton headersBgButton;
     private JButton bodyBgButton;
     private JButton defaultBgButton;
     private javax.swing.JCheckBox regionColoringCheckBox;
+
+    // WebSocket mode
+    private boolean webSocketMode = false;
+
+    // WebSocket region color buttons
+    private JButton wsKeyBgButton;
+    private JButton wsStringBgButton;
+    private JButton wsNumberBgButton;
+    private JButton wsStructureBgButton;
+    private JButton wsLiteralBgButton;
+    private JButton wsBinaryBgButton;
+    private JButton wsDefaultBgButton;
 
     // Colors tab
     private JPanel colorsTab;
@@ -808,58 +820,108 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         gbc.gridx = 2; charColorsPanel.add(spaceBgCheckBox, gbc);
         gbc.gridx = 3; charColorsPanel.add(spaceBgButton, gbc);
 
-        // HTTP Region Colors Section - using GridBagLayout
+        // Region Colors Section — context-aware (HTTP vs WebSocket)
         JPanel regionColorsPanel = new JPanel(new GridBagLayout());
-        regionColorsPanel.setBorder(BorderFactory.createTitledBorder("HTTP Region Background Colors"));
         GridBagConstraints rgbc = new GridBagConstraints();
         rgbc.insets = new Insets(3, 5, 3, 5);
         rgbc.anchor = GridBagConstraints.WEST;
 
-        // Enable/disable checkbox
-        regionColoringCheckBox = new javax.swing.JCheckBox("Enable HTTP region coloring");
-        regionColoringCheckBox.setSelected(true);
-        rgbc.gridy = 0;
-        rgbc.gridx = 0;
-        rgbc.gridwidth = 2;
-        regionColorsPanel.add(regionColoringCheckBox, rgbc);
-        rgbc.gridwidth = 1;
+        if (webSocketMode) {
+            regionColorsPanel.setBorder(BorderFactory.createTitledBorder("WebSocket Syntax Colors"));
 
-        requestLineBgButton = createColorButton("Request Line", new Color(255, 245, 238));
-        headersBgButton = createColorButton("Headers", new Color(240, 255, 240));
-        bodyBgButton = createColorButton("Body", new Color(240, 248, 255));
-        defaultBgButton = createColorButton("Default", new Color(255, 255, 255));
+            regionColoringCheckBox = new javax.swing.JCheckBox("Enable syntax coloring");
+            regionColoringCheckBox.setSelected(true);
+            rgbc.gridy = 0; rgbc.gridx = 0; rgbc.gridwidth = 2;
+            regionColorsPanel.add(regionColoringCheckBox, rgbc);
+            rgbc.gridwidth = 1;
 
-        rgbc.gridy = 1;
-        rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Request Line:"), rgbc);
-        rgbc.gridx = 1; regionColorsPanel.add(requestLineBgButton, rgbc);
+            wsKeyBgButton = createColorButton("Key", new Color(255, 243, 179));
+            wsStringBgButton = createColorButton("String", new Color(200, 245, 200));
+            wsNumberBgButton = createColorButton("Number", new Color(194, 229, 255));
+            wsStructureBgButton = createColorButton("Structure", new Color(224, 224, 224));
+            wsLiteralBgButton = createColorButton("Literal", new Color(229, 204, 255));
+            wsBinaryBgButton = createColorButton("Binary", new Color(255, 204, 204));
+            wsDefaultBgButton = createColorButton("Default", new Color(255, 255, 255));
 
-        rgbc.gridy = 2;
-        rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Headers:"), rgbc);
-        rgbc.gridx = 1; regionColorsPanel.add(headersBgButton, rgbc);
+            rgbc.gridy = 1; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Key:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(wsKeyBgButton, rgbc);
 
-        rgbc.gridy = 3;
-        rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Body:"), rgbc);
-        rgbc.gridx = 1; regionColorsPanel.add(bodyBgButton, rgbc);
+            rgbc.gridy = 2; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("String:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(wsStringBgButton, rgbc);
 
-        rgbc.gridy = 4;
-        rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Default:"), rgbc);
-        rgbc.gridx = 1; regionColorsPanel.add(defaultBgButton, rgbc);
+            rgbc.gridy = 3; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Number:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(wsNumberBgButton, rgbc);
 
-        // Toggle color buttons enabled state based on checkbox
-        regionColoringCheckBox.addActionListener(e -> {
-            boolean enabled = regionColoringCheckBox.isSelected();
-            requestLineBgButton.setEnabled(enabled);
-            headersBgButton.setEnabled(enabled);
-            bodyBgButton.setEnabled(enabled);
-            defaultBgButton.setEnabled(enabled);
-            if (hextraPainter != null) {
-                hextraPainter.setRegionColoringEnabled(enabled);
-                codeArea.repaint();
-            }
-            if (settingsManager != null) {
-                settingsManager.saveSetting(SettingsManager.KEY_REGION_COLORING_ENABLED, String.valueOf(enabled));
-            }
-        });
+            rgbc.gridy = 4; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Structure:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(wsStructureBgButton, rgbc);
+
+            rgbc.gridy = 5; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Literal:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(wsLiteralBgButton, rgbc);
+
+            rgbc.gridy = 6; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Binary:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(wsBinaryBgButton, rgbc);
+
+            rgbc.gridy = 7; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Default:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(wsDefaultBgButton, rgbc);
+
+            regionColoringCheckBox.addActionListener(e -> {
+                boolean enabled = regionColoringCheckBox.isSelected();
+                wsKeyBgButton.setEnabled(enabled);
+                wsStringBgButton.setEnabled(enabled);
+                wsNumberBgButton.setEnabled(enabled);
+                wsStructureBgButton.setEnabled(enabled);
+                wsLiteralBgButton.setEnabled(enabled);
+                wsBinaryBgButton.setEnabled(enabled);
+                wsDefaultBgButton.setEnabled(enabled);
+                if (hextraPainter != null) {
+                    hextraPainter.setRegionColoringEnabled(enabled);
+                    codeArea.repaint();
+                }
+                if (settingsManager != null) {
+                    settingsManager.saveSetting(SettingsManager.KEY_WS_COLORING_ENABLED, String.valueOf(enabled));
+                }
+            });
+        } else {
+            regionColorsPanel.setBorder(BorderFactory.createTitledBorder("HTTP Region Background Colors"));
+
+            regionColoringCheckBox = new javax.swing.JCheckBox("Enable HTTP region coloring");
+            regionColoringCheckBox.setSelected(true);
+            rgbc.gridy = 0; rgbc.gridx = 0; rgbc.gridwidth = 2;
+            regionColorsPanel.add(regionColoringCheckBox, rgbc);
+            rgbc.gridwidth = 1;
+
+            requestLineBgButton = createColorButton("Request Line", new Color(255, 245, 238));
+            headersBgButton = createColorButton("Headers", new Color(240, 255, 240));
+            bodyBgButton = createColorButton("Body", new Color(240, 248, 255));
+            defaultBgButton = createColorButton("Default", new Color(255, 255, 255));
+
+            rgbc.gridy = 1; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Request Line:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(requestLineBgButton, rgbc);
+
+            rgbc.gridy = 2; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Headers:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(headersBgButton, rgbc);
+
+            rgbc.gridy = 3; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Body:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(bodyBgButton, rgbc);
+
+            rgbc.gridy = 4; rgbc.gridx = 0; regionColorsPanel.add(new JLabel("Default:"), rgbc);
+            rgbc.gridx = 1; regionColorsPanel.add(defaultBgButton, rgbc);
+
+            regionColoringCheckBox.addActionListener(e -> {
+                boolean enabled = regionColoringCheckBox.isSelected();
+                requestLineBgButton.setEnabled(enabled);
+                headersBgButton.setEnabled(enabled);
+                bodyBgButton.setEnabled(enabled);
+                defaultBgButton.setEnabled(enabled);
+                if (hextraPainter != null) {
+                    hextraPainter.setRegionColoringEnabled(enabled);
+                    codeArea.repaint();
+                }
+                if (settingsManager != null) {
+                    settingsManager.saveSetting(SettingsManager.KEY_REGION_COLORING_ENABLED, String.valueOf(enabled));
+                }
+            });
+        }
 
         // Reset to Defaults button
         JPanel resetPanel = new JPanel();
@@ -997,6 +1059,15 @@ public class DeltaHexPanel extends javax.swing.JPanel {
     }
 
     /**
+     * Set WebSocket mode — changes the Colors tab to show WS-relevant
+     * region colors instead of HTTP region colors.
+     * Must be called before {@link #setCodeArea} which builds the UI.
+     */
+    public void setWebSocketMode(boolean wsMode) {
+        this.webSocketMode = wsMode;
+    }
+
+    /**
      * Get the parent frame for dialogs (required by BApp Store criteria)
      */
     private Frame getParentFrame() {
@@ -1064,53 +1135,71 @@ public class DeltaHexPanel extends javax.swing.JPanel {
             }
         });
 
-        requestLineBgButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(getParentFrame(), "Request Line Background", hextraPainter.getRequestLineBgColor());
-            if (newColor != null) {
-                hextraPainter.setRequestLineBgColor(newColor);
-                requestLineBgButton.setBackground(newColor);
-                codeArea.repaint();
-                if (settingsManager != null) {
-                    settingsManager.saveColor(SettingsManager.KEY_REQUEST_LINE_BG, newColor);
+        if (webSocketMode) {
+            // WS region color button listeners
+            setupWsColorButton(wsKeyBgButton, "Key Background",
+                () -> hextraPainter.getWsKeyBg(), c -> hextraPainter.setWsKeyBg(c), SettingsManager.KEY_WS_KEY_BG);
+            setupWsColorButton(wsStringBgButton, "String Background",
+                () -> hextraPainter.getWsStringBg(), c -> hextraPainter.setWsStringBg(c), SettingsManager.KEY_WS_STRING_BG);
+            setupWsColorButton(wsNumberBgButton, "Number Background",
+                () -> hextraPainter.getWsNumberBg(), c -> hextraPainter.setWsNumberBg(c), SettingsManager.KEY_WS_NUMBER_BG);
+            setupWsColorButton(wsStructureBgButton, "Structure Background",
+                () -> hextraPainter.getWsStructureBg(), c -> hextraPainter.setWsStructureBg(c), SettingsManager.KEY_WS_STRUCTURE_BG);
+            setupWsColorButton(wsLiteralBgButton, "Literal Background",
+                () -> hextraPainter.getWsLiteralBg(), c -> hextraPainter.setWsLiteralBg(c), SettingsManager.KEY_WS_LITERAL_BG);
+            setupWsColorButton(wsBinaryBgButton, "Binary Background",
+                () -> hextraPainter.getWsBinaryBg(), c -> hextraPainter.setWsBinaryBg(c), SettingsManager.KEY_WS_BINARY_BG);
+            setupWsColorButton(wsDefaultBgButton, "Default Background",
+                () -> hextraPainter.getWsDefaultBg(), c -> hextraPainter.setWsDefaultBg(c), SettingsManager.KEY_WS_DEFAULT_BG);
+        } else {
+            requestLineBgButton.addActionListener(e -> {
+                Color newColor = JColorChooser.showDialog(getParentFrame(), "Request Line Background", hextraPainter.getRequestLineBgColor());
+                if (newColor != null) {
+                    hextraPainter.setRequestLineBgColor(newColor);
+                    requestLineBgButton.setBackground(newColor);
+                    codeArea.repaint();
+                    if (settingsManager != null) {
+                        settingsManager.saveColor(SettingsManager.KEY_REQUEST_LINE_BG, newColor);
+                    }
                 }
-            }
-        });
+            });
 
-        headersBgButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(getParentFrame(), "Headers Background", hextraPainter.getHeadersBgColor());
-            if (newColor != null) {
-                hextraPainter.setHeadersBgColor(newColor);
-                headersBgButton.setBackground(newColor);
-                codeArea.repaint();
-                if (settingsManager != null) {
-                    settingsManager.saveColor(SettingsManager.KEY_HEADERS_BG, newColor);
+            headersBgButton.addActionListener(e -> {
+                Color newColor = JColorChooser.showDialog(getParentFrame(), "Headers Background", hextraPainter.getHeadersBgColor());
+                if (newColor != null) {
+                    hextraPainter.setHeadersBgColor(newColor);
+                    headersBgButton.setBackground(newColor);
+                    codeArea.repaint();
+                    if (settingsManager != null) {
+                        settingsManager.saveColor(SettingsManager.KEY_HEADERS_BG, newColor);
+                    }
                 }
-            }
-        });
+            });
 
-        bodyBgButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(getParentFrame(), "Body Background", hextraPainter.getBodyBgColor());
-            if (newColor != null) {
-                hextraPainter.setBodyBgColor(newColor);
-                bodyBgButton.setBackground(newColor);
-                codeArea.repaint();
-                if (settingsManager != null) {
-                    settingsManager.saveColor(SettingsManager.KEY_BODY_BG, newColor);
+            bodyBgButton.addActionListener(e -> {
+                Color newColor = JColorChooser.showDialog(getParentFrame(), "Body Background", hextraPainter.getBodyBgColor());
+                if (newColor != null) {
+                    hextraPainter.setBodyBgColor(newColor);
+                    bodyBgButton.setBackground(newColor);
+                    codeArea.repaint();
+                    if (settingsManager != null) {
+                        settingsManager.saveColor(SettingsManager.KEY_BODY_BG, newColor);
+                    }
                 }
-            }
-        });
+            });
 
-        defaultBgButton.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(getParentFrame(), "Default Background", hextraPainter.getDefaultBgColor());
-            if (newColor != null) {
-                hextraPainter.setDefaultBgColor(newColor);
-                defaultBgButton.setBackground(newColor);
-                codeArea.repaint();
-                if (settingsManager != null) {
-                    settingsManager.saveColor(SettingsManager.KEY_DEFAULT_BG, newColor);
+            defaultBgButton.addActionListener(e -> {
+                Color newColor = JColorChooser.showDialog(getParentFrame(), "Default Background", hextraPainter.getDefaultBgColor());
+                if (newColor != null) {
+                    hextraPainter.setDefaultBgColor(newColor);
+                    defaultBgButton.setBackground(newColor);
+                    codeArea.repaint();
+                    if (settingsManager != null) {
+                        settingsManager.saveColor(SettingsManager.KEY_DEFAULT_BG, newColor);
+                    }
                 }
-            }
-        });
+            });
+        }
 
         // Character background checkboxes and buttons
         setupCharBgListeners(printableBgCheckBox, printableBgButton,
@@ -1169,6 +1258,26 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         });
     }
 
+    private void setupWsColorButton(JButton button, String dialogTitle,
+                                      java.util.function.Supplier<Color> getter,
+                                      java.util.function.Consumer<Color> setter,
+                                      String settingsKey) {
+        if (button == null) return;
+        button.addActionListener(e -> {
+            Color currentColor = getter.get();
+            if (currentColor == null) currentColor = Color.WHITE;
+            Color newColor = JColorChooser.showDialog(getParentFrame(), dialogTitle, currentColor);
+            if (newColor != null) {
+                setter.accept(newColor);
+                button.setBackground(newColor);
+                codeArea.repaint();
+                if (settingsManager != null) {
+                    settingsManager.saveColor(settingsKey, newColor);
+                }
+            }
+        });
+    }
+
     private void loadSettings() {
         if (settingsManager == null) return;
 
@@ -1211,35 +1320,67 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         hextraPainter.setSpaceColor(spaceColor);
         if (spaceColorButton != null) spaceColorButton.setBackground(spaceColor);
 
-        // Load region coloring enabled setting
-        String regionColoringStr = settingsManager.loadSetting(SettingsManager.KEY_REGION_COLORING_ENABLED, "true");
+        // Load region coloring enabled setting (separate keys for HTTP and WS)
+        String enabledKey = webSocketMode ? SettingsManager.KEY_WS_COLORING_ENABLED : SettingsManager.KEY_REGION_COLORING_ENABLED;
+        String regionColoringStr = settingsManager.loadSetting(enabledKey, "true");
         boolean regionColoringEnabled = Boolean.parseBoolean(regionColoringStr);
         hextraPainter.setRegionColoringEnabled(regionColoringEnabled);
         if (regionColoringCheckBox != null) {
             regionColoringCheckBox.setSelected(regionColoringEnabled);
-            // Update button enabled states
+        }
+
+        if (webSocketMode) {
+            // Load WebSocket region colors
+            Color wsKeyBg = settingsManager.loadColor(SettingsManager.KEY_WS_KEY_BG, new Color(255, 243, 179));
+            hextraPainter.setWsKeyBg(wsKeyBg);
+            if (wsKeyBgButton != null) { wsKeyBgButton.setBackground(wsKeyBg); wsKeyBgButton.setEnabled(regionColoringEnabled); }
+
+            Color wsStringBg = settingsManager.loadColor(SettingsManager.KEY_WS_STRING_BG, new Color(200, 245, 200));
+            hextraPainter.setWsStringBg(wsStringBg);
+            if (wsStringBgButton != null) { wsStringBgButton.setBackground(wsStringBg); wsStringBgButton.setEnabled(regionColoringEnabled); }
+
+            Color wsNumberBg = settingsManager.loadColor(SettingsManager.KEY_WS_NUMBER_BG, new Color(194, 229, 255));
+            hextraPainter.setWsNumberBg(wsNumberBg);
+            if (wsNumberBgButton != null) { wsNumberBgButton.setBackground(wsNumberBg); wsNumberBgButton.setEnabled(regionColoringEnabled); }
+
+            Color wsStructureBg = settingsManager.loadColor(SettingsManager.KEY_WS_STRUCTURE_BG, new Color(224, 224, 224));
+            hextraPainter.setWsStructureBg(wsStructureBg);
+            if (wsStructureBgButton != null) { wsStructureBgButton.setBackground(wsStructureBg); wsStructureBgButton.setEnabled(regionColoringEnabled); }
+
+            Color wsLiteralBg = settingsManager.loadColor(SettingsManager.KEY_WS_LITERAL_BG, new Color(229, 204, 255));
+            hextraPainter.setWsLiteralBg(wsLiteralBg);
+            if (wsLiteralBgButton != null) { wsLiteralBgButton.setBackground(wsLiteralBg); wsLiteralBgButton.setEnabled(regionColoringEnabled); }
+
+            Color wsBinaryBg = settingsManager.loadColor(SettingsManager.KEY_WS_BINARY_BG, new Color(255, 204, 204));
+            hextraPainter.setWsBinaryBg(wsBinaryBg);
+            if (wsBinaryBgButton != null) { wsBinaryBgButton.setBackground(wsBinaryBg); wsBinaryBgButton.setEnabled(regionColoringEnabled); }
+
+            Color wsDefaultBg = settingsManager.loadColor(SettingsManager.KEY_WS_DEFAULT_BG, new Color(255, 255, 255));
+            hextraPainter.setWsDefaultBg(wsDefaultBg);
+            if (wsDefaultBgButton != null) { wsDefaultBgButton.setBackground(wsDefaultBg); wsDefaultBgButton.setEnabled(regionColoringEnabled); }
+        } else {
+            // Load HTTP region colors
             if (requestLineBgButton != null) requestLineBgButton.setEnabled(regionColoringEnabled);
             if (headersBgButton != null) headersBgButton.setEnabled(regionColoringEnabled);
             if (bodyBgButton != null) bodyBgButton.setEnabled(regionColoringEnabled);
             if (defaultBgButton != null) defaultBgButton.setEnabled(regionColoringEnabled);
+
+            Color requestLineBg = settingsManager.loadColor(SettingsManager.KEY_REQUEST_LINE_BG, new Color(255, 245, 238));
+            hextraPainter.setRequestLineBgColor(requestLineBg);
+            if (requestLineBgButton != null) requestLineBgButton.setBackground(requestLineBg);
+
+            Color headersBg = settingsManager.loadColor(SettingsManager.KEY_HEADERS_BG, new Color(240, 255, 240));
+            hextraPainter.setHeadersBgColor(headersBg);
+            if (headersBgButton != null) headersBgButton.setBackground(headersBg);
+
+            Color bodyBg = settingsManager.loadColor(SettingsManager.KEY_BODY_BG, new Color(240, 248, 255));
+            hextraPainter.setBodyBgColor(bodyBg);
+            if (bodyBgButton != null) bodyBgButton.setBackground(bodyBg);
+
+            Color defaultBg = settingsManager.loadColor(SettingsManager.KEY_DEFAULT_BG, new Color(255, 255, 255));
+            hextraPainter.setDefaultBgColor(defaultBg);
+            if (defaultBgButton != null) defaultBgButton.setBackground(defaultBg);
         }
-
-        // Load region colors
-        Color requestLineBg = settingsManager.loadColor(SettingsManager.KEY_REQUEST_LINE_BG, new Color(255, 245, 238));
-        hextraPainter.setRequestLineBgColor(requestLineBg);
-        if (requestLineBgButton != null) requestLineBgButton.setBackground(requestLineBg);
-
-        Color headersBg = settingsManager.loadColor(SettingsManager.KEY_HEADERS_BG, new Color(240, 255, 240));
-        hextraPainter.setHeadersBgColor(headersBg);
-        if (headersBgButton != null) headersBgButton.setBackground(headersBg);
-
-        Color bodyBg = settingsManager.loadColor(SettingsManager.KEY_BODY_BG, new Color(240, 248, 255));
-        hextraPainter.setBodyBgColor(bodyBg);
-        if (bodyBgButton != null) bodyBgButton.setBackground(bodyBg);
-
-        Color defaultBg = settingsManager.loadColor(SettingsManager.KEY_DEFAULT_BG, new Color(255, 255, 255));
-        hextraPainter.setDefaultBgColor(defaultBg);
-        if (defaultBgButton != null) defaultBgButton.setBackground(defaultBg);
 
         // Load character background colors (null means use region background)
         loadCharBgSetting(SettingsManager.KEY_PRINTABLE_BG, printableBgCheckBox, printableBgButton,
@@ -1251,19 +1392,37 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         loadCharBgSetting(SettingsManager.KEY_SPACE_BG, spaceBgCheckBox, spaceBgButton,
             c -> hextraPainter.setSpaceBgColor(c));
 
-        // Load saved theme name and set combo box (if colors were customized, use "Custom")
-        String savedTheme = settingsManager.loadSetting(SettingsManager.KEY_CURRENT_THEME, "Light");
-        if (themeComboBox != null) {
-            // Set the combo box without triggering the action listener
-            themeComboBox.removeActionListener(themeComboBox.getActionListeners().length > 0 ?
-                themeComboBox.getActionListeners()[0] : null);
-            for (int i = 0; i < themeComboBox.getItemCount(); i++) {
-                if (themeComboBox.getItemAt(i).equals(savedTheme)) {
-                    themeComboBox.setSelectedIndex(i);
-                    break;
+        // Load saved theme name and set combo box
+        // null means no theme was ever saved — apply the default theme
+        String savedTheme = settingsManager.loadSetting(SettingsManager.KEY_CURRENT_THEME, null);
+        if (savedTheme == null) {
+            // First-time load: apply default theme and persist it
+            savedTheme = "High Contrast";
+            if (themeComboBox != null) {
+                themeComboBox.removeActionListener(themeComboBox.getActionListeners().length > 0 ?
+                    themeComboBox.getActionListeners()[0] : null);
+                for (int i = 0; i < themeComboBox.getItemCount(); i++) {
+                    if (themeComboBox.getItemAt(i).equals(savedTheme)) {
+                        themeComboBox.setSelectedIndex(i);
+                        break;
+                    }
                 }
+                themeComboBox.addActionListener(e -> applySelectedTheme());
             }
-            themeComboBox.addActionListener(e -> applySelectedTheme());
+            applySelectedTheme();
+        } else {
+            // Returning user: just restore the combo box selection
+            if (themeComboBox != null) {
+                themeComboBox.removeActionListener(themeComboBox.getActionListeners().length > 0 ?
+                    themeComboBox.getActionListeners()[0] : null);
+                for (int i = 0; i < themeComboBox.getItemCount(); i++) {
+                    if (themeComboBox.getItemAt(i).equals(savedTheme)) {
+                        themeComboBox.setSelectedIndex(i);
+                        break;
+                    }
+                }
+                themeComboBox.addActionListener(e -> applySelectedTheme());
+            }
         }
     }
 
@@ -1310,11 +1469,22 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         // Reset region coloring to enabled
         hextraPainter.setRegionColoringEnabled(true);
 
-        // Reset region background colors to defaults
-        hextraPainter.setRequestLineBgColor(new Color(255, 245, 238));  // Seashell
-        hextraPainter.setHeadersBgColor(new Color(240, 255, 240));      // Honeydew
-        hextraPainter.setBodyBgColor(new Color(240, 248, 255));         // AliceBlue
-        hextraPainter.setDefaultBgColor(Color.WHITE);
+        if (webSocketMode) {
+            // Reset WS region colors to defaults
+            hextraPainter.setWsKeyBg(new Color(255, 243, 179));
+            hextraPainter.setWsStringBg(new Color(200, 245, 200));
+            hextraPainter.setWsNumberBg(new Color(194, 229, 255));
+            hextraPainter.setWsStructureBg(new Color(224, 224, 224));
+            hextraPainter.setWsLiteralBg(new Color(229, 204, 255));
+            hextraPainter.setWsBinaryBg(new Color(255, 204, 204));
+            hextraPainter.setWsDefaultBg(Color.WHITE);
+        } else {
+            // Reset HTTP region background colors to defaults
+            hextraPainter.setRequestLineBgColor(new Color(255, 245, 238));  // Seashell
+            hextraPainter.setHeadersBgColor(new Color(240, 255, 240));      // Honeydew
+            hextraPainter.setBodyBgColor(new Color(240, 248, 255));         // AliceBlue
+            hextraPainter.setDefaultBgColor(Color.WHITE);
+        }
 
         // Reset character background colors (null = use region background)
         hextraPainter.setPrintableBgColor(null);
@@ -1332,21 +1502,31 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         if (regionColoringCheckBox != null) {
             regionColoringCheckBox.setSelected(true);
         }
-        if (requestLineBgButton != null) {
-            requestLineBgButton.setEnabled(true);
-            requestLineBgButton.setBackground(new Color(255, 245, 238));
-        }
-        if (headersBgButton != null) {
-            headersBgButton.setEnabled(true);
-            headersBgButton.setBackground(new Color(240, 255, 240));
-        }
-        if (bodyBgButton != null) {
-            bodyBgButton.setEnabled(true);
-            bodyBgButton.setBackground(new Color(240, 248, 255));
-        }
-        if (defaultBgButton != null) {
-            defaultBgButton.setEnabled(true);
-            defaultBgButton.setBackground(Color.WHITE);
+        if (webSocketMode) {
+            if (wsKeyBgButton != null) { wsKeyBgButton.setEnabled(true); wsKeyBgButton.setBackground(new Color(255, 243, 179)); }
+            if (wsStringBgButton != null) { wsStringBgButton.setEnabled(true); wsStringBgButton.setBackground(new Color(200, 245, 200)); }
+            if (wsNumberBgButton != null) { wsNumberBgButton.setEnabled(true); wsNumberBgButton.setBackground(new Color(194, 229, 255)); }
+            if (wsStructureBgButton != null) { wsStructureBgButton.setEnabled(true); wsStructureBgButton.setBackground(new Color(224, 224, 224)); }
+            if (wsLiteralBgButton != null) { wsLiteralBgButton.setEnabled(true); wsLiteralBgButton.setBackground(new Color(229, 204, 255)); }
+            if (wsBinaryBgButton != null) { wsBinaryBgButton.setEnabled(true); wsBinaryBgButton.setBackground(new Color(255, 204, 204)); }
+            if (wsDefaultBgButton != null) { wsDefaultBgButton.setEnabled(true); wsDefaultBgButton.setBackground(Color.WHITE); }
+        } else {
+            if (requestLineBgButton != null) {
+                requestLineBgButton.setEnabled(true);
+                requestLineBgButton.setBackground(new Color(255, 245, 238));
+            }
+            if (headersBgButton != null) {
+                headersBgButton.setEnabled(true);
+                headersBgButton.setBackground(new Color(240, 255, 240));
+            }
+            if (bodyBgButton != null) {
+                bodyBgButton.setEnabled(true);
+                bodyBgButton.setBackground(new Color(240, 248, 255));
+            }
+            if (defaultBgButton != null) {
+                defaultBgButton.setEnabled(true);
+                defaultBgButton.setBackground(Color.WHITE);
+            }
         }
 
         // Reset character background checkboxes and buttons
@@ -1376,14 +1556,26 @@ public class DeltaHexPanel extends javax.swing.JPanel {
             settingsManager.saveSetting(SettingsManager.KEY_PRINTABLE_COLOR, null);
             settingsManager.saveSetting(SettingsManager.KEY_NULL_BYTE_COLOR, null);
             settingsManager.saveSetting(SettingsManager.KEY_UNPRINTABLE_COLOR, null);
-            settingsManager.saveSetting(SettingsManager.KEY_REQUEST_LINE_BG, null);
-            settingsManager.saveSetting(SettingsManager.KEY_HEADERS_BG, null);
-            settingsManager.saveSetting(SettingsManager.KEY_BODY_BG, null);
-            settingsManager.saveSetting(SettingsManager.KEY_DEFAULT_BG, null);
             settingsManager.saveSetting(SettingsManager.KEY_PRINTABLE_BG, null);
             settingsManager.saveSetting(SettingsManager.KEY_NULL_BYTE_BG, null);
             settingsManager.saveSetting(SettingsManager.KEY_UNPRINTABLE_BG, null);
             settingsManager.saveSetting(SettingsManager.KEY_SPACE_BG, null);
+            if (webSocketMode) {
+                settingsManager.saveSetting(SettingsManager.KEY_WS_COLORING_ENABLED, null);
+                settingsManager.saveSetting(SettingsManager.KEY_WS_KEY_BG, null);
+                settingsManager.saveSetting(SettingsManager.KEY_WS_STRING_BG, null);
+                settingsManager.saveSetting(SettingsManager.KEY_WS_NUMBER_BG, null);
+                settingsManager.saveSetting(SettingsManager.KEY_WS_STRUCTURE_BG, null);
+                settingsManager.saveSetting(SettingsManager.KEY_WS_LITERAL_BG, null);
+                settingsManager.saveSetting(SettingsManager.KEY_WS_BINARY_BG, null);
+                settingsManager.saveSetting(SettingsManager.KEY_WS_DEFAULT_BG, null);
+            } else {
+                settingsManager.saveSetting(SettingsManager.KEY_REGION_COLORING_ENABLED, null);
+                settingsManager.saveSetting(SettingsManager.KEY_REQUEST_LINE_BG, null);
+                settingsManager.saveSetting(SettingsManager.KEY_HEADERS_BG, null);
+                settingsManager.saveSetting(SettingsManager.KEY_BODY_BG, null);
+                settingsManager.saveSetting(SettingsManager.KEY_DEFAULT_BG, null);
+            }
         }
 
         // Repaint

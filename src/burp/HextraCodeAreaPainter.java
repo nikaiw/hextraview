@@ -49,6 +49,16 @@ public class HextraCodeAreaPainter implements CodeAreaColorAssessor {
     private Color defaultBg = new Color(255, 255, 255);      // White
     private boolean regionColoringEnabled = true;
 
+    // WebSocket payload parser and region colors
+    private WebSocketPayloadParser wsParser;
+    private Color wsKeyBg = new Color(255, 243, 179);       // Amber
+    private Color wsStringBg = new Color(200, 245, 200);    // Green
+    private Color wsNumberBg = new Color(194, 229, 255);    // Blue
+    private Color wsStructureBg = new Color(224, 224, 224); // Gray
+    private Color wsLiteralBg = new Color(229, 204, 255);   // Lavender
+    private Color wsBinaryBg = new Color(255, 204, 204);    // Pink
+    private Color wsDefaultBg = new Color(255, 255, 255);   // White
+
     public HextraCodeAreaPainter(CodeArea codeArea) {
         this.codeArea = codeArea;
         buildCharacterTypeMapping();
@@ -217,6 +227,31 @@ public class HextraCodeAreaPainter implements CodeAreaColorAssessor {
         return regionParser;
     }
 
+    // WebSocket payload parser support
+    public void setWsParser(WebSocketPayloadParser parser) {
+        this.wsParser = parser;
+    }
+
+    public WebSocketPayloadParser getWsParser() {
+        return wsParser;
+    }
+
+    // WebSocket region color setters/getters
+    public void setWsKeyBg(Color color) { this.wsKeyBg = color; }
+    public Color getWsKeyBg() { return wsKeyBg; }
+    public void setWsStringBg(Color color) { this.wsStringBg = color; }
+    public Color getWsStringBg() { return wsStringBg; }
+    public void setWsNumberBg(Color color) { this.wsNumberBg = color; }
+    public Color getWsNumberBg() { return wsNumberBg; }
+    public void setWsStructureBg(Color color) { this.wsStructureBg = color; }
+    public Color getWsStructureBg() { return wsStructureBg; }
+    public void setWsLiteralBg(Color color) { this.wsLiteralBg = color; }
+    public Color getWsLiteralBg() { return wsLiteralBg; }
+    public void setWsBinaryBg(Color color) { this.wsBinaryBg = color; }
+    public Color getWsBinaryBg() { return wsBinaryBg; }
+    public void setWsDefaultBg(Color color) { this.wsDefaultBg = color; }
+    public Color getWsDefaultBg() { return wsDefaultBg; }
+
     public void setRegionColoringEnabled(boolean enabled) {
         this.regionColoringEnabled = enabled;
     }
@@ -269,6 +304,21 @@ public class HextraCodeAreaPainter implements CodeAreaColorAssessor {
             // Return null to use bined's default alternating gray background
             return null;
         }
+
+        // WebSocket payload regions take priority when set
+        if (wsParser != null) {
+            WebSocketPayloadParser.Region wsRegion = wsParser.getRegionAt(dataPosition);
+            switch (wsRegion) {
+                case KEY:       return wsKeyBg;
+                case STRING:    return wsStringBg;
+                case NUMBER:    return wsNumberBg;
+                case STRUCTURE: return wsStructureBg;
+                case LITERAL:   return wsLiteralBg;
+                case BINARY:    return wsBinaryBg;
+                default:        return wsDefaultBg;
+            }
+        }
+
         if (regionParser == null) {
             return defaultBg;
         }

@@ -1,9 +1,13 @@
 package burp;
 
+import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.persistence.PersistedObject;
+
 import java.awt.Color;
 
 public class SettingsManager {
     private final IBurpExtenderCallbacks callbacks;
+    private final PersistedObject storage;
     private static final String PREFIX = "hextraview.";
 
     // Setting keys
@@ -65,31 +69,56 @@ public class SettingsManager {
     public static final String KEY_BODY_BG = "bodyBgColor";
     public static final String KEY_DEFAULT_BG = "defaultBgColor";
 
+    // Color keys - WebSocket region background colors
+    public static final String KEY_WS_COLORING_ENABLED = "wsColoringEnabled";
+    public static final String KEY_WS_KEY_BG = "wsKeyBgColor";
+    public static final String KEY_WS_STRING_BG = "wsStringBgColor";
+    public static final String KEY_WS_NUMBER_BG = "wsNumberBgColor";
+    public static final String KEY_WS_STRUCTURE_BG = "wsStructureBgColor";
+    public static final String KEY_WS_LITERAL_BG = "wsLiteralBgColor";
+    public static final String KEY_WS_BINARY_BG = "wsBinaryBgColor";
+    public static final String KEY_WS_DEFAULT_BG = "wsDefaultBgColor";
+
     // Theme key
     public static final String KEY_CURRENT_THEME = "currentTheme";
 
     public SettingsManager(IBurpExtenderCallbacks callbacks) {
         this.callbacks = callbacks;
+        this.storage = null;
+    }
+
+    public SettingsManager(MontoyaApi api) {
+        this.callbacks = null;
+        this.storage = api.persistence().extensionData();
     }
 
     public void saveSetting(String key, String value) {
-        if (callbacks != null) {
-            // Pass null to clear the setting, or the value to save it
+        if (storage != null) {
+            if (value != null) {
+                storage.setString(PREFIX + key, value);
+            } else {
+                storage.deleteString(PREFIX + key);
+            }
+        } else if (callbacks != null) {
             callbacks.saveExtensionSetting(PREFIX + key, value);
         }
     }
 
     public void clearSetting(String key) {
-        if (callbacks != null) {
+        if (storage != null) {
+            storage.deleteString(PREFIX + key);
+        } else if (callbacks != null) {
             callbacks.saveExtensionSetting(PREFIX + key, null);
         }
     }
 
     public String loadSetting(String key, String defaultValue) {
-        if (callbacks == null) {
-            return defaultValue;
+        String value = null;
+        if (storage != null) {
+            value = storage.getString(PREFIX + key);
+        } else if (callbacks != null) {
+            value = callbacks.loadExtensionSetting(PREFIX + key);
         }
-        String value = callbacks.loadExtensionSetting(PREFIX + key);
         return value != null ? value : defaultValue;
     }
 
