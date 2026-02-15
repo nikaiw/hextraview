@@ -157,6 +157,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
 
     // Theme selector
     private javax.swing.JComboBox<String> themeComboBox;
+    private boolean suppressThemeComboEvents = false;
 
     // Search panel
     private SearchPanel searchPanel;
@@ -756,7 +757,11 @@ public class DeltaHexPanel extends javax.swing.JPanel {
             "Light", "Dark", "High Contrast", "Monokai", "Solarized Dark",
             "Solarized Light", "Matrix", "Dracula", "Ocean", "Retro", "Custom"
         });
-        themeComboBox.addActionListener(e -> applySelectedTheme());
+        themeComboBox.addActionListener(e -> {
+            if (!suppressThemeComboEvents) {
+                applySelectedTheme();
+            }
+        });
         themePanel.add(themeComboBox, tgbc);
 
         colorsPanel.add(themePanel);
@@ -1392,36 +1397,21 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         loadCharBgSetting(SettingsManager.KEY_SPACE_BG, spaceBgCheckBox, spaceBgButton,
             c -> hextraPainter.setSpaceBgColor(c));
 
-        // Load saved theme name and set combo box
-        // null means no theme was ever saved — apply the default theme
+        // Load saved theme name and set combo box selection.
+        // null means no theme was ever saved: apply the default theme and persist it.
         String savedTheme = settingsManager.loadSetting(SettingsManager.KEY_CURRENT_THEME, null);
         if (savedTheme == null) {
-            // First-time load: apply default theme and persist it
             savedTheme = "High Contrast";
-            if (themeComboBox != null) {
-                themeComboBox.removeActionListener(themeComboBox.getActionListeners().length > 0 ?
-                    themeComboBox.getActionListeners()[0] : null);
-                for (int i = 0; i < themeComboBox.getItemCount(); i++) {
-                    if (themeComboBox.getItemAt(i).equals(savedTheme)) {
-                        themeComboBox.setSelectedIndex(i);
-                        break;
-                    }
-                }
-                themeComboBox.addActionListener(e -> applySelectedTheme());
-            }
-            applySelectedTheme();
-        } else {
-            // Returning user: just restore the combo box selection
-            if (themeComboBox != null) {
-                themeComboBox.removeActionListener(themeComboBox.getActionListeners().length > 0 ?
-                    themeComboBox.getActionListeners()[0] : null);
-                for (int i = 0; i < themeComboBox.getItemCount(); i++) {
-                    if (themeComboBox.getItemAt(i).equals(savedTheme)) {
-                        themeComboBox.setSelectedIndex(i);
-                        break;
-                    }
-                }
-                themeComboBox.addActionListener(e -> applySelectedTheme());
+            applyThemeByName(savedTheme, true);
+        }
+
+        // Only restore combo box selection (do not apply theme for returning users, since colors are persisted).
+        if (themeComboBox != null) {
+            suppressThemeComboEvents = true;
+            try {
+                themeComboBox.setSelectedItem(savedTheme);
+            } finally {
+                suppressThemeComboEvents = false;
             }
         }
     }
@@ -1592,14 +1582,19 @@ public class DeltaHexPanel extends javax.swing.JPanel {
     private void applySelectedTheme() {
         if (hextraPainter == null) return;
 
-        String selectedTheme = (String) themeComboBox.getSelectedItem();
-        if (selectedTheme == null || selectedTheme.equals("Custom")) {
-            // Custom means keep current colors
+        String selectedTheme = themeComboBox != null ? (String) themeComboBox.getSelectedItem() : null;
+        applyThemeByName(selectedTheme, true);
+    }
+
+    private void applyThemeByName(String themeName, boolean persistThemeName) {
+        if (hextraPainter == null) return;
+        if (themeName == null || "Custom".equals(themeName)) {
+            // Custom means keep current colors (or UI not initialized yet).
             return;
         }
 
         ColorTheme theme;
-        switch (selectedTheme) {
+        switch (themeName) {
             case "Dark":
                 theme = ColorTheme.createDarkTheme();
                 break;
@@ -1635,9 +1630,8 @@ public class DeltaHexPanel extends javax.swing.JPanel {
 
         applyTheme(theme);
 
-        // Save current theme name
-        if (settingsManager != null) {
-            settingsManager.saveSetting(SettingsManager.KEY_CURRENT_THEME, selectedTheme);
+        if (persistThemeName && settingsManager != null) {
+            settingsManager.saveSetting(SettingsManager.KEY_CURRENT_THEME, themeName);
         }
     }
 
