@@ -90,6 +90,9 @@ import org.exbin.auxiliary.binary_data.EditableBinaryData;
  */
 public class DeltaHexPanel extends javax.swing.JPanel {
 
+    private static final int MIN_SETTINGS_PANEL_WIDTH_PX = 260;
+    private static final int DEFAULT_SETTINGS_PANEL_WIDTH_PX = 280;
+
     private CodeArea codeArea;
     private final Map<JPanel, JPanel> tabMap = new HashMap<>();
     private JPanel activeTab;
@@ -150,6 +153,7 @@ public class DeltaHexPanel extends javax.swing.JPanel {
     private JButton toggleSettingsButton;
     private JLabel expandSettingsLink;
     private JPanel hexAreaWrapper;
+    private JPanel settingsWrapperPanel;
 
     // Options tab
     private JPanel optionsTab;
@@ -670,7 +674,8 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         toggleSettingsButton.addActionListener(e -> toggleSettingsPanel());
 
         // Create a wrapper panel with button at top
-        JPanel settingsWrapper = new JPanel(new BorderLayout());
+        settingsWrapperPanel = new JPanel(new BorderLayout());
+        settingsWrapperPanel.setMinimumSize(new Dimension(MIN_SETTINGS_PANEL_WIDTH_PX, 0));
 
         // Top bar with toggle button
         JPanel topBar = new JPanel(new BorderLayout());
@@ -680,10 +685,11 @@ public class DeltaHexPanel extends javax.swing.JPanel {
         topBar.add(settingsLabel, BorderLayout.CENTER);
         topBar.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
 
-        settingsWrapper.add(topBar, BorderLayout.NORTH);
-        settingsWrapper.add(tabbedPane, BorderLayout.CENTER);
+        settingsWrapperPanel.add(topBar, BorderLayout.NORTH);
+        settingsWrapperPanel.add(tabbedPane, BorderLayout.CENTER);
 
-        splitPane.setLeftComponent(settingsWrapper);
+        splitPane.setLeftComponent(settingsWrapperPanel);
+        splitPane.setResizeWeight(0.0);
 
         // Load saved collapsed state
         if (settingsManager != null) {
@@ -700,21 +706,50 @@ public class DeltaHexPanel extends javax.swing.JPanel {
                     }
                 });
             } else {
-                splitPane.setDividerLocation(lastDividerLocation);
+                // Apply after layout to avoid first-paint sizing races.
+                scheduleDividerLocationApply(getDesiredSettingsPanelWidthPx(), 3);
             }
         }
+    }
+
+    private int getDesiredSettingsPanelWidthPx() {
+        int desired = lastDividerLocation > 50 ? lastDividerLocation : DEFAULT_SETTINGS_PANEL_WIDTH_PX;
+        desired = Math.max(desired, MIN_SETTINGS_PANEL_WIDTH_PX);
+        if (settingsWrapperPanel != null) {
+            desired = Math.max(desired, settingsWrapperPanel.getPreferredSize().width);
+        }
+        return desired;
+    }
+
+    private void scheduleDividerLocationApply(int desiredPx, int attempts) {
+        if (attempts <= 0) return;
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            // If the split pane hasn't been laid out yet, retry on the next EDT turn.
+            if (splitPane.getWidth() <= 0) {
+                scheduleDividerLocationApply(desiredPx, attempts - 1);
+                return;
+            }
+
+            // Keep enough room for the right (hex) side so the editor doesn't get crushed.
+            int max = Math.max(MIN_SETTINGS_PANEL_WIDTH_PX, splitPane.getWidth() - 150);
+            int clamped = Math.max(MIN_SETTINGS_PANEL_WIDTH_PX, Math.min(desiredPx, max));
+            splitPane.setDividerLocation(clamped);
+            splitPane.revalidate();
+        });
     }
 
     private void toggleSettingsPanel() {
         if (settingsCollapsed) {
             // Expand
-            splitPane.setDividerLocation(lastDividerLocation > 50 ? lastDividerLocation : 200);
+            // Uncollapse immediately, then apply the desired divider location after layout.
+            splitPane.setDividerLocation(1);
             toggleSettingsButton.setText("◀");
             toggleSettingsButton.setToolTipText("Collapse settings panel");
             settingsCollapsed = false;
             if (expandSettingsLink != null) {
                 expandSettingsLink.setVisible(false);
             }
+            scheduleDividerLocationApply(getDesiredSettingsPanelWidthPx(), 3);
         } else {
             // Collapse - store current location first
             lastDividerLocation = splitPane.getDividerLocation();
