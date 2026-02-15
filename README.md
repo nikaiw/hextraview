@@ -2,7 +2,8 @@
 
 Hextraview is a mere attempt at bringing a better hex editor in Burp Suite. This idea took root following very popular demand (i.e. 3 people on a lost IRC channel).
 
-![](hextraview.gif)
+<img width="1542" height="571" alt="image" src="https://github.com/user-attachments/assets/a31ff9d9-f0e5-4f09-8caf-ed4f38ec53f9" />
+
 
 ## Features
 
