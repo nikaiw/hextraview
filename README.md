@@ -97,7 +97,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 - May 2021: 5 minutes spent to push the lib basis example into a view
 - November 2021: Nothing has changed let's put it in a corner of GitHub
 - December 2025: v1.1.0 - Major update with bined library, search/replace, context menu, themes (vibe coded)
-- February 2026: v1.2.1 - Fix theme initialization NPE
+- February 2026: v1.2.2 - Fix settings panel width on first expand
 
 ## Todo / Requests
 
